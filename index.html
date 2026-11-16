@@ -116,6 +116,10 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .dropzone:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .dropzone b{font-family:var(--display);font-size:16px}
 .steps{margin:0;padding-left:18px;font-size:13px;color:var(--muted)} .steps li{margin:2px 0}
+.memlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:0 18px}
+.memrow{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line);min-width:0}
+.memname{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.memact{display:flex;gap:6px;flex-shrink:0} .memact button{min-height:34px;padding:4px 10px}
 .cadence{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
 .dash{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
 .dash .span2,.dash .hero{grid-column:1/-1}
@@ -272,7 +276,8 @@ const addM=(k,n)=>{let[y,m]=k.split("-").map(Number);m+=n;while(m>12){m-=12;y++}
 const mLabel=k=>{const[y,m]=k.split("-");return `${y.slice(2)}년 ${Number(m)}월`};
 const SNAP=window.__SNAP||null; // 공유용 파일: 데이터가 파일 안에 들어 있고, 보기만 돼요
 const today=()=>SNAP?new Date(SNAP.at):new Date();
-function cfg(){return Object.assign({},DEFAULT_CFG,state.cfg||{})}
+const isPersonName=n=>!!n&&!/\d|회비|입금|송금|환불|유니폼|구장|주장|\(|주식회사|\(주\)/.test(n); // ‘10월회비’ 같은 적요는 사람이 아니에요
+function cfg(){ const c=Object.assign({},DEFAULT_CFG,state.cfg||{}); c.members=(c.members||[]).filter(m=>isPersonName(m.name)); return c; }
 function dt(t){return new Date(t.t)}
 function hash(s){let h=5381;for(const ch of s)h=((h*33)^ch.codePointAt(0))>>>0;return h.toString(36)}
 function txId(iso,name,amt,bal){return "t"+iso.replace(/\D/g,"").slice(0,14)+"_"+hash(name+"|"+amt+"|"+(bal??""))}
@@ -757,14 +762,14 @@ function dues(rs){
     ${lateRows?`<table><thead><tr><th>이름</th><th>연체</th><th class="r">회칙상 연체료</th></tr></thead><tbody>${lateRows}</tbody></table>`:'<p class="note">아직 연체된 회비가 없어요.</p>'}
     ${Object.keys(L.paidFees).length?`<p class="note" style="margin-top:10px">연체료·벌금으로 들어온 돈: ${Object.entries(L.paidFees).map(([n,v])=>`${esc(n)} ${won(v)}`).join(", ")}</p>`:""}</div>
   ${mx.unknown.length?`<div class="card" style="margin-top:14px"><h2>명단에 없는 이름으로 들어온 회비 ${mx.unknown.length}건</h2>
-    <p class="note" style="margin-top:-4px">누가 낸 건지 고르면 그 회원의 납부로 들어가요. 새 회원이면 명단에 추가하세요.</p>
+    <p class="note" style="margin-top:-4px">적요가 이름이 아닌 입금(예: ‘10월회비’)은 누가 냈는지 골라주세요. 그 회원의 납부로 들어가요.</p>
     <table><tbody>${mx.unknown.map(r=>`<tr><td class="num">${r.t.slice(0,10)}</td><td>${esc(r.name)}</td><td class="r num ok">${won(r.amt)}</td>
       <td><select class="cat" data-id="${esc(r.id)}" data-k="payer" ${ro?"disabled":""} aria-label="낸 사람"><option value="">낸 사람 고르기</option>${mem.map(m=>`<option>${esc(m.name)}</option>`).join("")}</select></td>
-      <td>${ro?"":`<button class="small" data-addmem="${esc(baseName(r.name))}" type="button">‘${esc(baseName(r.name))}’ 회원으로 추가</button>`}</td></tr>`).join("")}</tbody></table></div>`:""}
+      <td>${ro||!isPersonName(baseName(r.name))?"":`<button class="small" data-addmem="${esc(baseName(r.name))}" type="button">‘${esc(baseName(r.name))}’ 회원으로 추가</button>`}</td></tr>`).join("")}</tbody></table></div>`:""}
   <div class="card" style="margin-top:14px"><h2>회원 명단</h2>
     <div class="toolbar">${ro?"":`<form class="form" id="memForm"><label class="f" for="mName">이름<input id="mName" required></label><label class="f" for="mSince">가입 월<input type="month" id="mSince" value="${cur}"></label><button class="primary" type="submit">추가</button></form>`}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">${mem.map((m,i)=>`<span class="chip ${m.active===false?"mute":"in"}" style="padding:4px 10px">${esc(m.name)}
-      ${ro?"":`<button class="small" data-toggle="${i}" type="button" style="margin-left:6px">${m.active===false?"활동으로":"휴면으로"}</button><button class="small danger" data-rm="${i}" type="button">빼기</button>`}</span>`).join("")}</div>
+    <div class="memlist">${mem.map((m,i)=>`<div class="memrow"><span class="memname">${esc(m.name)}</span><span class="chip ${m.active===false?"mute":"in"}">${m.active===false?"휴면":"활동"}</span>
+      ${ro?"":`<span class="memact"><button class="small" data-toggle="${i}" type="button">${m.active===false?"활동으로":"휴면으로"}</button><button class="small danger" data-rm="${i}" type="button">빼기</button></span>`}</div>`).join("")}</div>
     <p class="note">휴면 회원은 미납으로 세지 않아요. 가입 월은 첫 회비를 낸 달로 두면 돼요(제3조).</p></div>`;
   bindRowControls();
   document.querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>{const k=b.dataset.adj; const a=Object.assign({},cfg().adjust||{}); if(a[k]) delete a[k]; else a[k]=true; saveCfg({adjust:a})});
