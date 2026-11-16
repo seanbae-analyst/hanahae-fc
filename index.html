@@ -767,11 +767,11 @@ function dues(rs){
       ${ro?"":`<button class="small" data-toggle="${i}" type="button" style="margin-left:6px">${m.active===false?"활동으로":"휴면으로"}</button><button class="small danger" data-rm="${i}" type="button">빼기</button>`}</span>`).join("")}</div>
     <p class="note">휴면 회원은 미납으로 세지 않아요. 가입 월은 첫 회비를 낸 달로 두면 돼요(제3조).</p></div>`;
   bindRowControls();
-  document.querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>{const k=b.dataset.adj; const a=Object.assign({},c.adjust||{}); if(a[k]) delete a[k]; else a[k]=true; saveCfg({adjust:a})});
-  document.querySelectorAll("[data-addmem]").forEach(b=>b.onclick=()=>{const n=b.dataset.addmem; if(c.members.some(m=>m.name===n))return; saveCfg({members:[...c.members,{name:n,active:true,since:c.startMonth}]})});
-  document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const m=c.members.map(x=>Object.assign({},x)); const i=+b.dataset.toggle; m[i].active=m[i].active===false; saveCfg({members:m})});
-  document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ if(!b.dataset.armed){b.dataset.armed="1";b.textContent="정말 빼기";return} const m=c.members.filter((_,i)=>i!==+b.dataset.rm); saveCfg({members:m})});
-  const mf=$("#memForm"); if(mf) mf.onsubmit=e=>{e.preventDefault(); const n=$("#mName").value.trim(); if(!n||c.members.some(m=>m.name===n))return; saveCfg({members:[...c.members,{name:n,active:true,since:$("#mSince").value||cur}]})};
+  document.querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>{const k=b.dataset.adj; const a=Object.assign({},cfg().adjust||{}); if(a[k]) delete a[k]; else a[k]=true; saveCfg({adjust:a})});
+  document.querySelectorAll("[data-addmem]").forEach(b=>b.onclick=()=>{const n=b.dataset.addmem; if(cfg().members.some(m=>m.name===n))return; saveCfg({members:[...cfg().members,{name:n,active:true,since:cfg().startMonth}]})});
+  document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const m=cfg().members.map(x=>Object.assign({},x)); const i=+b.dataset.toggle; m[i].active=m[i].active===false; saveCfg({members:m})});
+  document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ if(!b.dataset.armed){b.dataset.armed="1";b.textContent="정말 빼기";return} const m=cfg().members.filter((_,i)=>i!==+b.dataset.rm); saveCfg({members:m})});
+  const mf=$("#memForm"); if(mf) mf.onsubmit=e=>{e.preventDefault(); const n=$("#mName").value.trim(); if(!n||cfg().members.some(m=>m.name===n))return; saveCfg({members:[...cfg().members,{name:n,active:true,since:$("#mSince").value||cur}]})};
 }
 
 function report(rs){
