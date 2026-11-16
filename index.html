@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <title>하나해 FC 회비 장부</title>
+<meta name="description" id="ogDesc0" content="Club finance dashboard: auto-reconciled bank ledger, dues tracking and weekly cash-flow forecast.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HANA HAE FC">
+<meta property="og:title" content="하나해 FC 회비 장부">
+<meta property="og:description" content="회비 납부 현황, 지출 내역, 주간 현금흐름 예측을 한눈에 보는 하나해 FC 장부">
+<meta property="og:image" content="https://seanbae-analyst.github.io/hanahae-fc/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="627">
+<meta property="og:url" content="https://seanbae-analyst.github.io/hanahae-fc/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="https://seanbae-analyst.github.io/hanahae-fc/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;600;700&display=swap" rel="stylesheet">
@@ -996,6 +1007,11 @@ function pageWithSeed(seedJs,title){ // 지금 화면 코드에 데이터만 바
   root.querySelectorAll("#seed,#snap").forEach(x=>x.remove());
   root.removeAttribute("data-theme"); root.setAttribute("lang","ko"); root.querySelector("body")?.classList.remove("locked");
   root.querySelector("#msg").innerHTML=""; if(title) root.querySelector("title").textContent=title;
+  const demo=seedJs.includes("__DEMO"), BASE="https://seanbae-analyst.github.io/hanahae-fc/";
+  const og={"og:title":demo?"HANA HAE FC · Club Finance Dashboard":"하나해 FC 회비 장부",
+    "og:description":demo?"Auto-reconciled bank ledger, dues tracking and weekly cash-flow forecast for a weekend football club. Live demo, names anonymized.":"회비 납부 현황, 지출 내역, 주간 현금흐름 예측을 한눈에 보는 하나해 FC 장부",
+    "og:url":BASE+(demo?"demo.html":"")};
+  Object.entries(og).forEach(([k,v])=>{const e=root.querySelector(`meta[property="${k}"]`); if(e) e.setAttribute("content",v);});
   return "<!DOCTYPE html>\n"+root.outerHTML.replace("<script>\n\"use strict\";",`<script id="seed">${seedJs}<\/script>\n<script>\n"use strict";`);
 }
 const J=o=>JSON.stringify(o).replace(/</g,"\\u003c");
