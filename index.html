@@ -224,7 +224,7 @@ body.locked #tabs,body.locked .tabbar,body.locked .pager,body.locked .crest .too
 <dialog id="pinDlg" aria-labelledby="pinTitle">
   <form id="pinForm" class="pinform">
     <h2 id="pinTitle">관리자 로그인</h2>
-    <p class="note" style="margin:0">임원진만 거래내역을 올리고 수정할 수 있어요.</p>
+    <p class="note" style="margin:0">임원진만 거래내역을 올리고 수정할 수 있어요. 한 번 들어가면 이 기기에서는 ‘잠그기’를 누르기 전까지 계속 유지돼요.</p>
     <label class="f" for="pinInput">관리자 비밀번호<input type="password" id="pinInput" autocomplete="current-password" required></label>
     <p class="note neg" id="pinErr" style="margin:0;min-height:1.2em"></p>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="pinCancel">취소</button><button class="primary" type="submit">들어가기</button></div>
@@ -250,8 +250,9 @@ const DEFAULT_CFG={dues:20000,uniform:55000,startBalance:0,startMonth:"2026-08",
 
 let db=null, canWrite=null, downloads=null;
 /* 관리자 모드: 비밀번호로 화면의 수정 기능을 엽니다. 실제 쓰기 권한은 공유 설정(보기 전용은 저장 불가)이 막아요. */
-function adminKey(){try{return sessionStorage.getItem("hhfc-admin")}catch(_){return state.adminMem||null}}
-function setAdminKey(v){try{v?sessionStorage.setItem("hhfc-admin",v):sessionStorage.removeItem("hhfc-admin")}catch(_){} state.adminMem=v}
+// 관리자 로그인은 이 기기에 계속 유지돼요. ‘잠그기’를 누르면 풀려요.
+function adminKey(){try{return localStorage.getItem("hhfc-admin")||sessionStorage.getItem("hhfc-admin")}catch(_){return state.adminMem||null}}
+function setAdminKey(v){try{ if(v){localStorage.setItem("hhfc-admin",v)} else {localStorage.removeItem("hhfc-admin"); sessionStorage.removeItem("hhfc-admin")} }catch(_){} state.adminMem=v}
 function editable(){ if(canWrite===false||!db) return false; const c=cfg(); if(!c.pinHash) return true; return adminKey()===c.pinHash; }
 function viewKey(){try{return localStorage.getItem("hhfc-view")}catch(_){return state.viewMem||null}}
 function setViewKey(v){try{v?localStorage.setItem("hhfc-view",v):localStorage.removeItem("hhfc-view")}catch(_){} state.viewMem=v}
