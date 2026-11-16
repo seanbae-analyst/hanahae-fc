@@ -281,7 +281,9 @@ async function deriveTokKey(pw){ try{ const base=await crypto.subtle.importKey("
 async function aesKey(raw){ return crypto.subtle.importKey("raw",unb64(raw),"AES-GCM",false,["encrypt","decrypt"]); }
 async function encTok(token,raw){ const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},await aesKey(raw),new TextEncoder().encode(token)); return {iv:b64(iv),ct:b64(ct)}; }
 async function decTok(enc,raw){ try{ return new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(enc.iv)},await aesKey(raw),unb64(enc.ct))); }catch(_){ return ""; } }
-async function loginWith(pw){ const h=await pwHash(pw); if(h!==cfg().pinHash) return false; setAdminKey(h); setTokKey(await deriveTokKey(pw)); return true; }
+async function loginWith(pw){ const h=await pwHash(pw); if(h!==cfg().pinHash) return false; setAdminKey(h); const k=await deriveTokKey(pw); setTokKey(k);
+  const old=ghToken(); if(old&&k&&!cfg().ghTokEnc){ try{ await saveCfg({ghTokEnc:await encTok(old,k)}); localStorage.removeItem("hhfc-gh-token"); }catch(_){} } // 예전에 이 기기에 넣어둔 토큰은 자동으로 옮겨요
+  return true; }
 function setAdminKey(v){ if(!v) setTokKey(null); try{ if(v){localStorage.setItem("hhfc-admin",v)} else {localStorage.removeItem("hhfc-admin"); sessionStorage.removeItem("hhfc-admin")} }catch(_){} state.adminMem=v}
 function editable(){ if(canWrite===false||!db) return false; const c=cfg(); if(!c.pinHash) return true; return adminKey()===c.pinHash; }
 function viewKey(){try{return localStorage.getItem("hhfc-view")}catch(_){return state.viewMem||null}}
