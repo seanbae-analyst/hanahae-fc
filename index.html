@@ -331,7 +331,7 @@ function lateInfo(rs){ // 회칙 제4조: 매월 dueDay일까지, 연체 1주당
 }
 function streak(mx,name,rs){ const c=cfg(); const cur=ym(today()); const ms=months(rs).filter(m=>m<cur||today().getDate()>c.dueDay); let n=0;
   for(let i=ms.length-1;i>=0;i--){ if(paidAmt(mx,name,ms[i])>=req(name,ms[i])) break; n++; } return n; }
-function paidCount(mx,m){const c=cfg();return c.members.filter(x=>paidAmt(mx,x.name,m)>=req(x.name,m)).length}
+function paidCount(mx,m){const c=cfg();return c.members.filter(x=>x.active!==false&&paidAmt(mx,x.name,m)>=req(x.name,m)).length}
 
 /* ---------- writes ---------- */
 function say(html,kind="info",ms=6000){ const el=$("#msg"); el.innerHTML=`<div class="banner ${kind}">${html}</div>`; if(ms) setTimeout(()=>{if(el.innerHTML.includes(html))el.innerHTML=""},ms); }
@@ -732,7 +732,7 @@ function bindRowControls(){
 function dues(rs){
   const c=cfg(); const ms=months(rs); const cur=ym(today()); const mx=duesMatrix(rs); const L=lateInfo(rs);
   const mem=c.members; const ro=!editable();
-  const rowsH=mem.map(m=>{ const st=streak(mx,m.name,rs);
+  const rowsH=mem.map(m=>{ const st=m.active===false?0:streak(mx,m.name,rs);
     const cells=ms.map(k=>{ const v=paidAmt(mx,m.name,k); const since=m.since||c.startMonth; const need=req(m.name,k); const adj=need!==c.dues;
       if(k<since||(m.active===false&&!v)) return `<td><span class="cell na">–</span></td>`;
       let cls,txt;
@@ -744,7 +744,7 @@ function dues(rs){
       const tip=`${won(v)} 납부 · 낼 돈 ${won(need)}${adj?" (불참 조정)":""}`;
       return ro?`<td><span class="cell ${cls}" title="${tip}">${txt}</span></td>`:
         `<td><button class="cell ${cls}" style="border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:600" data-adj="${esc(m.name+"|"+k)}" title="${tip}. 누르면 불참 조정(${won(c.adjustAmt)}) 켜고 끄기" type="button">${txt}</button></td>`; }).join("");
-    return `<tr><td><b>${esc(m.name)}</b>${m.active===false?' <span class="chip mute">휴면</span>':""}</td>${cells}<td>${st>=3?`<span class="chip bad">${st}개월 · 징계 검토</span>`:st?`<span class="chip warn">${st}개월</span>`:'<span class="chip in">없음</span>'}</td></tr>`; }).join("");
+    return `<tr><td><b>${esc(m.name)}</b>${m.active===false?' <span class="chip mute">휴면</span>':""}</td>${cells}<td>${m.active===false?'<span class="chip mute">휴면</span>':st>=3?`<span class="chip bad">${st}개월 · 징계 검토</span>`:st?`<span class="chip warn">${st}개월</span>`:'<span class="chip in">없음</span>'}</td></tr>`; }).join("");
   const lateByName={}; for(const x of L.list){(lateByName[x.name]??=[]).push(x)}
   const lateRows=Object.entries(lateByName).map(([n,xs])=>{const owed=xs.reduce((s,x)=>s+x.fee,0); const paid=L.paidFees[n]||0;
     return `<tr><td><b>${esc(n)}</b></td><td>${xs.map(x=>`${mLabel(x.m)} ${x.paid?`${x.paidAt.slice(5,10).replace("-","/")} 납부`:"미납"} · ${x.weeks}주`).join("<br>")}</td><td class="r num">${won(owed)}</td></tr>`}).join("");
