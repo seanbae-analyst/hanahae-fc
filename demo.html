@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>HANA HAE FC · Dues Ledger (Demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: a treasurer's ledger under the club crest band — tabs, summary first, detail below. Crest navy and gold carry the brand; clay marks money out. */
+:root{
+  --bg:#F4F3EF; --surface:#FFFFFF; --ink:#111833; --muted:#5F6478; --line:#E0DED6;
+  --accent:#23407A; --accent-soft:#E3E9F5; --out:#B5532F; --out-soft:#F6E6DE;
+  --navy:#070B1E; --gold:#D8B676;
+  --warn:#9A6A00; --warn-soft:#FBF1D6; --bad:#B3261E; --bad-soft:#FBE3E1;
+  --display:"Noto Serif KR","Nanum Myeongjo","AppleMyungjo",serif;
+  --body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Sans","IBM Plex Sans KR",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#090D1F; --surface:#111731; --ink:#ECE8DD; --muted:#9A9FB4; --line:#232B4A;
+  --accent:#D8B676; --accent-soft:#2A2617; --out:#E58A63; --out-soft:#3A2419;
+  --warn:#E2B54A; --warn-soft:#382D12; --bad:#F08A80; --bad-soft:#3D1D1A; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#090D1F; --surface:#111731; --ink:#ECE8DD; --muted:#9A9FB4; --line:#232B4A;
+  --accent:#D8B676; --accent-soft:#2A2617; --out:#E58A63; --out-soft:#3A2419;
+  --warn:#E2B54A; --warn-soft:#382D12; --bad:#F08A80; --bad-soft:#3D1D1A; color-scheme:dark; }
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.6;letter-spacing:-0.01em;
+  word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+p,.note,.sub,.banner,.memo{text-wrap:pretty}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 20px 60px}
+.crest{background:var(--navy);color:var(--gold);border-radius:12px;padding:14px 18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+.crest .id{display:flex;align-items:center;gap:14px}
+.crest img{width:52px;height:52px;border-radius:10px;display:block}
+.crest h1 .club{display:block;font-family:var(--body);font-size:11px;letter-spacing:.14em;color:#B9B4A4;margin:0 0 1px;font-weight:600}
+.crest{position:sticky;top:0;z-index:15;box-shadow:0 6px 18px rgba(7,11,30,.18)}
+.crest h1{color:var(--gold)} .crest h1 #asof{color:#B9B4A4}
+.crest .btn{background:transparent;color:var(--gold);border-color:#5A4D2E}
+.crest .btn.primary{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+h1{font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:-0.02em;margin:0;line-height:1.2;text-wrap:balance}
+h1 small{display:block;font-family:var(--body);font-size:13px;color:var(--muted);letter-spacing:0;margin-top:4px}
+h2{font-family:var(--display);font-size:16px;font-weight:700;letter-spacing:-0.01em;margin:0 0 10px;text-wrap:balance}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+#tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+#tabs a{padding:10px 14px;color:var(--muted);text-decoration:none;font-weight:600;border-bottom:3px solid transparent;white-space:nowrap}
+#tabs a[aria-current="page"]{color:var(--ink);border-color:var(--accent)}
+#tabs a:focus-visible,.tabbar a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis6{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (max-width:1000px){.kpis6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.kpis6{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(17,24,51,.04),0 4px 14px rgba(17,24,51,.04)}
+.kpi .label{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:0}
+.kpi .value{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.two{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.chip.in{background:var(--accent-soft);color:var(--accent)}
+.chip.out{background:var(--out-soft);color:var(--out)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.mute{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.ok{color:var(--accent)} .neg{color:var(--out)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--surface);position:sticky;top:0}
+td.r,th.r{text-align:right}
+td.num,th.r,td:first-child,th{white-space:nowrap}
+.scroll{overflow-x:auto}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+button,.btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] button.primary{color:#0A0E22}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.primary{color:#0A0E22}}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.danger{color:var(--bad)}
+button.small{padding:3px 8px;font-size:12px}
+select,input{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+select.cat{padding:3px 6px;font-size:13px}
+input[type="number"]{width:120px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.note{font-size:12px;color:var(--muted)}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px}
+.banner.info{background:var(--accent-soft);color:var(--ink)}
+.banner.warn{background:var(--warn-soft);color:var(--ink)}
+.banner.bad{background:var(--bad-soft);color:var(--ink)}
+.dues td,.dues th{text-align:center;padding:6px 4px}
+.dues td:first-child,.dues th:first-child{text-align:left;padding-left:8px;position:sticky;left:0;background:var(--surface)}
+.cell{display:inline-block;min-width:46px;padding:2px 4px;border-radius:6px;font-size:12px;font-weight:600}
+.cell.paid{background:var(--accent-soft);color:var(--accent)}
+.cell.part{background:var(--warn-soft);color:var(--warn)}
+.cell.miss{background:var(--bad-soft);color:var(--bad)}
+.cell.na{color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:84px 1fr auto;gap:8px;align-items:center;font-size:13px}
+.bar .track{height:10px;min-width:40px;background:var(--bg);border-radius:5px;overflow:hidden}
+.bar .fill{height:100%;background:var(--out);border-radius:5px}
+.chartbox{position:relative;height:260px}
+.hidden{display:none!important}
+.tag{font-size:11px;color:var(--muted);margin-left:4px}
+.memo{color:var(--muted);font-size:12px}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+.drop{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:stretch}
+@media (max-width:760px){.drop{grid-template-columns:1fr}}
+.dropzone{border:2px dashed var(--line);border-radius:10px;padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;cursor:pointer;background:var(--bg);transition:border-color .15s,background .15s}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-soft)}
+.dropzone:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dropzone b{font-family:var(--display);font-size:16px}
+.steps{margin:0;padding-left:18px;font-size:13px;color:var(--muted)} .steps li{margin:2px 0}
+.memlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:0 18px}
+.memrow{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line);min-width:0}
+.memname{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.memact{display:flex;gap:6px;flex-shrink:0} .memact button{min-height:34px;padding:4px 10px}
+.cadence{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.dash{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.dash .span2,.dash .hero{grid-column:1/-1}
+.hero{background:linear-gradient(155deg,#121B45 0%,#070B1E 70%);color:#ECE8DD;border:0;padding:22px}
+.hero .label{color:#B9B4A4!important}
+.hero .big{color:var(--gold)}
+.hero .chip.in{background:rgba(216,182,118,.16);color:var(--gold)}
+.hero .chip.out{background:rgba(229,138,99,.18);color:#F0A585}
+.hero .chip.bad{background:rgba(240,138,128,.18);color:#F5A9A1}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+.quick button,.quick a{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:14px;background:rgba(255,255,255,.07);color:#ECE8DD;font-size:12.5px;font-weight:600;border:0;text-decoration:none;cursor:pointer}
+.quick svg{color:var(--gold)}
+.hero .label{color:var(--muted);font-size:13px;font-weight:600}
+.hero .big{font-family:var(--mono);font-weight:700;font-size:40px;letter-spacing:-0.03em;line-height:1.15;margin:4px 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rowhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.rowhead h2{margin:0}
+.strong{font-weight:700;font-size:18px} .muted{color:var(--muted)} .small{font-size:13px}
+.progress{height:12px;border-radius:6px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
+.progress div{height:100%;background:var(--accent);border-radius:6px}
+.notice{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:space-between;text-decoration:none;color:var(--ink);background:var(--warn-soft);border-color:transparent}
+.chip.out{background:var(--out-soft);color:var(--out)}
+#tabs{position:sticky;top:0;z-index:5;background:var(--bg)}
+@media (max-width:640px){
+  .wrap{padding:10px 12px 48px}
+  .crest{margin:-10px -12px 10px;border-radius:0 0 20px 20px;padding:calc(12px + env(safe-area-inset-top)) 16px 14px;gap:10px}
+  .crest{flex-wrap:nowrap} .crest .id{min-width:0} .adminbtn{flex-shrink:0}
+  .crest img{width:40px;height:40px;border-radius:9px}
+  .crest h1{font-size:21px} .crest h1 #asof{font-size:11.5px}
+  .crest .toolbar{display:none}
+  .card{padding:16px;border-radius:18px}
+  .hero{padding:22px 18px}
+  .wrap{min-height:100vh}
+  .dash{grid-template-columns:1fr;gap:12px}
+  .hero .big{font-size:34px}
+  .kpis{grid-template-columns:1fr}
+  .bar{grid-template-columns:64px 1fr auto}
+  .hide-sm{display:none}
+  th,td{padding:7px 6px}
+  .form{display:grid;grid-template-columns:1fr 1fr} .form button{grid-column:1/-1}
+  .form input,.form select{width:100%}
+  input[type="number"]{width:100%}
+  table.list thead{display:none}
+  table.list tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  table.list td{border:0;padding:0}
+  table.list .c-date{grid-column:1/-1;font-size:12px;color:var(--muted)}
+  table.list .c-amt{font-weight:700;font-size:15px;text-align:right}
+  table.list .c-cat,table.list .c-month,table.list .c-del{grid-column:1/-1}
+  table.list .c-month:empty,table.list .c-del:empty,table.list .c-bal{display:none}
+  .dues td,.dues th{padding:5px 3px} .cell{min-width:38px}
+}
+.tabbar{display:none}
+.pager{display:none}
+@keyframes inR{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+@keyframes inL{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
+#view.inR{animation:inR .22s ease-out} #view.inL{animation:inL .22s ease-out}
+@media (max-width:640px){
+  #tabs{display:none}
+  .wrap{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--navy);padding:6px 4px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #1E2547}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;color:#8E93A8;text-decoration:none;font-size:11px;font-weight:600;border-radius:10px}
+  .tabbar a[aria-current="page"]{color:var(--gold)}
+  .pager{display:flex;justify-content:center;gap:6px;margin:2px 0 12px}
+  .pager i{width:6px;height:6px;border-radius:3px;background:var(--line);transition:width .2s}
+  .pager i.on{width:18px;background:var(--accent)}
+}
+.adminbtn{order:3;margin-left:auto;font:inherit;font-size:12.5px;font-weight:600;border-radius:999px;padding:6px 12px;border:1px solid #5A4D2E;background:transparent;color:var(--gold);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.langbtn{order:4;margin-left:0;padding:6px 10px;min-width:40px;justify-content:center}
+.adminbtn.on{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+dialog{border:0;border-radius:18px;padding:0;max-width:min(92vw,380px);width:100%;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(7,11,30,.55)}
+.pinform{display:grid;gap:12px;padding:22px}
+.pinform input{width:100%}
+.gate{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:20px 0}
+.gate .card{max-width:380px;width:100%;text-align:center;display:grid;gap:12px;justify-items:center;padding:28px 22px}
+.gate img{width:96px;height:96px;border-radius:16px}
+.gate form{display:grid;gap:10px;width:100%}
+.gate input{width:100%;text-align:center;font-size:16px;padding:10px}
+body.locked #tabs,body.locked .tabbar,body.locked .pager,body.locked .crest .toolbar{display:none!important}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="crest">
+    <button type="button" id="adminBtn" class="adminbtn hidden" aria-label="관리자 모드"></button>
+    <button type="button" id="langBtn" class="adminbtn langbtn" aria-label="Language">EN</button>
+    <div class="id"><img src="data:image/jpeg;base64,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" alt="하나해 FC 엠블럼"><h1><small class="club">하나해 FC</small><span id="pageTitle">회비 장부</span><small id="asof">불러오는 중…</small></h1></div>
+    <div class="toolbar" style="margin:0">
+      <label class="btn primary" id="importLabel" for="importFile">거래내역서 올리기</label>
+      <input type="file" id="importFile" accept=".xlsx,.xls,.csv" class="hidden">
+      <button id="exportBtn" class="btn hidden" type="button">CSV로 내보내기</button>
+    </div>
+  </header>
+  <div id="msg"></div>
+  <nav id="tabs">
+    <a href="#overview">대시보드</a>
+    <a href="#ledger">거래내역</a>
+    <a href="#dues">회비 납부</a>
+    <a href="#forecast">잔액 예측</a>
+    <a href="#settings">설정</a>
+  </nav>
+  <div class="pager" id="pager" aria-hidden="true"></div>
+  <main id="view"><div class="empty">장부를 불러오는 중이에요…</div></main>
+</div>
+<nav class="tabbar" id="tabbar" aria-label="페이지"><a href="#overview"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span>홈</span></a><a href="#ledger"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>거래</span></a><a href="#dues"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M16 11l2 2 4-4"/></svg><span>회비</span></a><a href="#forecast"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>예측</span></a><a href="#settings"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>설정</span></a></nav>
+
+<dialog id="pinDlg" aria-labelledby="pinTitle">
+  <form id="pinForm" class="pinform">
+    <h2 id="pinTitle">관리자 로그인</h2>
+    <p class="note" style="margin:0">임원진만 거래내역을 올리고 수정할 수 있어요. 한 번 들어가면 이 기기에서는 ‘잠그기’를 누르기 전까지 계속 유지돼요.</p>
+    <label class="f" for="pinInput">관리자 비밀번호<input type="password" id="pinInput" autocomplete="current-password" required></label>
+    <p class="note neg" id="pinErr" style="margin:0;min-height:1.2em"></p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="pinCancel">취소</button><button class="primary" type="submit">들어가기</button></div>
+  </form>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script id="seed">window.__DEMO=true;window.__LANG_DEFAULT="en";window.__SEED={"at": "2026-11-16T00:29:46.116Z", "cfg": {"dues": 20000, "uniform": 55000, "startBalance": 0, "startMonth": "2026-08", "rules": [{"k": "구장", "c": "구장비"}, {"k": "물값", "c": "물/간식"}, {"k": "지에스25", "c": "물/간식"}, {"k": "GS25", "c": "물/간식"}, {"k": "이마트", "c": "물/간식"}, {"k": "편의점", "c": "물/간식"}, {"k": "전술판", "c": "장비"}, {"k": "기계", "c": "장비"}, {"k": "윈윈스포츠", "c": "장비"}, {"k": "판타지스타", "c": "유니폼"}, {"k": "유니폼", "c": "유니폼"}, {"k": "회식", "c": "회식"}, {"k": "참가비", "c": "대회/참가비"}, {"k": "커피", "c": "기타지출"}, {"k": "캐시백", "c": "취소/상쇄"}, {"k": "환불", "c": "취소/상쇄"}, {"k": "회비", "c": "회비"}], "members": [{"name": "Player 01", "active": true, "since": "2026-08"}, {"name": "Player 02", "active": true, "since": "2026-08"}, {"name": "Player 03", "active": true, "since": "2026-08"}, {"name": "Player 04", "active": true, "since": "2026-08"}, {"name": "Player 05", "active": true, "since": "2026-08"}, {"name": "Player 06", "active": true, "since": "2026-08"}, {"name": "Player 07", "active": true, "since": "2026-08"}, {"name": "Player 08", "active": true, "since": "2026-08"}, {"name": "Player 09", "active": true, "since": "2026-08"}, {"name": "Player 10", "active": true, "since": "2026-08"}, {"name": "Player 11", "active": true, "since": "2026-08"}, {"name": "Player 12", "active": true, "since": "2026-08"}, {"name": "Player 13", "active": true, "since": "2026-08"}, {"name": "Player 14", "active": true, "since": "2026-08"}, {"name": "Player 15", "active": true, "since": "2026-08"}, {"name": "Player 16", "active": true, "since": "2026-08"}, {"name": "Player 17", "active": true, "since": "2026-08"}], "planned": [], "payers": null, "opex": null, "horizon": 6, "dueDay": 10, "lateFee": 5000, "adjustAmt": 5000, "lateFrom": "2026-12", "adjust": {}, "fc": {}, "fcLog": {}}, "tx": [{"id": "t20261115153026_mexke", "t": "2026-11-15T15:30:26", "name": "Player 04", "type": "Transfer", "amt": -3500, "src": "toss", "bal": 299483, "memo": "Water", "cat": "물/간식"}, {"id": "t20261115010938_1g612po", "t": "2026-11-15T01:09:38", "name": "Player 02", "type": "Deposit", "amt": 2000, "src": "toss", "bal": 302983, "cat": "연체료/벌금"}, {"id": "t20261114172233_1njdzu9", "t": "2026-11-14T17:22:33", "name": "Player 09", "type": "Transfer", "amt": -23800, "src": "toss", "bal": 300983, "memo": "Ball pump", "cat": "장비"}, {"id": "t20261111213304_1ipdxba", "t": "2026-11-11T21:33:04", "name": "Player 02", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 324783, "cat": "회비"}, {"id": "t20261111105831_hgrerd", "t": "2026-11-11T10:58:31", "name": "Player 14", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 304783, "cat": "회비"}, {"id": "t20261110194830_cjl08k", "t": "2026-11-10T19:48:30", "name": "Player 09", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 284783, "cat": "회비"}, {"id": "t20261110161900_1al4gl7", "t": "2026-11-10T16:19:00", "name": "Player 01", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 264783, "cat": "회비"}, {"id": "t20261110161624_a2sr6p", "t": "2026-11-10T16:16:24", "name": "Player 11", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 244783, "cat": "회비"}, {"id": "t20261110154433_1qymuvq", "t": "2026-11-10T15:44:33", "name": "Player 16", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 224783, "cat": "회비"}, {"id": "t20261110143850_3usimg", "t": "2026-11-10T14:38:50", "name": "Player 07", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 204783, "cat": "회비"}, {"id": "t20261109195927_6hlt43", "t": "2026-11-09T19:59:27", "name": "Pitch operator", "type": "Transfer", "amt": -38500, "src": "toss", "bal": 184783, "cat": "구장비"}, {"id": "t20261109175914_i2q1b8", "t": "2026-11-09T17:59:14", "name": "Player 17", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 223283, "cat": "회비"}, {"id": "t20261109142154_uwweya", "t": "2026-11-09T14:21:54", "name": "Player 04", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 203283, "cat": "회비"}, {"id": "t20261109141737_4cr7ad", "t": "2026-11-09T14:17:37", "name": "Player 03", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 183283, "cat": "회비"}, {"id": "t20261109141445_rxct13", "t": "2026-11-09T14:14:45", "name": "Player 15", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 163283, "cat": "회비"}, {"id": "t20261109141326_198kh2t", "t": "2026-11-09T14:13:26", "name": "Player 06", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 143283, "cat": "회비"}, {"id": "t20261109141237_1m9tmqe", "t": "2026-11-09T14:12:37", "name": "Player 12", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 123283, "cat": "회비"}, {"id": "t20261109140903_vigsj0", "t": "2026-11-09T14:09:03", "name": "Player 05", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 103283, "cat": "회비"}, {"id": "t20261108194224_1q1o248", "t": "2026-11-08T19:42:24", "name": "Player 07", "type": "Transfer", "amt": -15300, "src": "toss", "bal": 83283, "memo": "Water", "cat": "물/간식"}, {"id": "t20261105111723_1qok3qa", "t": "2026-11-05T11:17:23", "name": "Player 09", "type": "Transfer", "amt": -49900, "src": "toss", "bal": 98583, "memo": "Tactics board", "cat": "장비"}, {"id": "t20261102133812_1xvktoa", "t": "2026-11-02T13:38:12", "name": "Player 22", "type": "Transfer", "amt": -45000, "src": "toss", "bal": 148483, "memo": "Pitch fee 11/8", "cat": "구장비"}, {"id": "t20261101040129_cmxqmo", "t": "2026-11-01T04:01:29", "name": "Interest", "type": "Interest", "amt": 14, "src": "toss", "bal": 193483, "cat": "이자"}, {"id": "t20261022161134_1uqrpg6", "t": "2026-10-22T16:11:34", "name": "Kit supplier", "type": "Transfer", "amt": -52000, "src": "toss", "bal": 193469, "cat": "유니폼"}, {"id": "t20261020105049_60enjl", "t": "2026-10-20T10:50:49", "name": "Player 21", "type": "Deposit", "amt": 500, "src": "toss", "bal": 245469, "cat": "유니폼"}, {"id": "t20261020105030_1q7p7rs", "t": "2026-10-20T10:50:30", "name": "Player 21", "type": "Deposit", "amt": 55000, "src": "toss", "bal": 244969, "cat": "유니폼"}, {"id": "t20261019140456_m5718g", "t": "2026-10-19T14:04:56", "name": "Player 06", "type": "Transfer", "amt": -3000, "src": "toss", "bal": 189969, "cat": "유니폼"}, {"id": "t20261019140436_1cwqzzs", "t": "2026-10-19T14:04:36", "name": "Kit supplier", "type": "Transfer", "amt": -500, "src": "toss", "bal": 192969, "cat": "유니폼"}, {"id": "t20261019140044_tz7t3l", "t": "2026-10-19T14:00:44", "name": "Kit supplier", "type": "Transfer", "amt": -55000, "src": "toss", "bal": 193469, "cat": "유니폼"}, {"id": "t20261018162144_1l96jan", "t": "2026-10-18T16:21:44", "name": "Player 09", "type": "Transfer", "amt": -4700, "src": "toss", "bal": 248469, "memo": "Coffee for guest keeper", "cat": "기타지출"}, {"id": "t20261017220006_1ixtr92", "t": "2026-10-17T22:00:06", "name": "Player 03", "type": "Transfer", "amt": -3600, "src": "toss", "bal": 253169, "memo": "Water", "cat": "물/간식"}, {"id": "t20261015080504_1belsak", "t": "2026-10-15T08:05:04", "name": "Player 06", "type": "Transfer", "amt": -33000, "src": "toss", "bal": 256769, "memo": "Pitch fee 10/17", "cat": "구장비"}, {"id": "t20261013202631_u279eu", "t": "2026-10-13T20:26:31", "name": "Player 11", "type": "Deposit", "amt": 55000, "src": "toss", "bal": 289769, "cat": "유니폼"}, {"id": "t20261013192110_1cwpn4j", "t": "2026-10-13T19:21:10", "name": "Player 24 refund", "type": "Deposit", "amt": 65000, "src": "toss", "bal": 234769, "cat": "취소/상쇄"}, {"id": "t20261013190518_d31tbw", "t": "2026-10-13T19:05:18", "name": "Player 11 kit shipping", "type": "Deposit", "amt": 3500, "src": "toss", "bal": 169769, "cat": "유니폼"}, {"id": "t20261013175621_187371i", "t": "2026-10-13T17:56:21", "name": "Player 02", "type": "Deposit", "amt": 25000, "src": "toss", "bal": 166269, "month": "2026-10", "cat": "회비"}, {"id": "t20261013100143_1hbxuir", "t": "2026-10-13T10:01:43", "name": "Player 24", "type": "Transfer", "amt": -65000, "src": "toss", "bal": 141269, "cat": "취소/상쇄"}, {"id": "t20261011224057_k9dkpb", "t": "2026-10-11T22:40:57", "name": "Player 06", "type": "Transfer", "amt": -7400, "src": "toss", "bal": 206269, "memo": "Water", "cat": "물/간식"}, {"id": "t20261011200034_1qwpaev", "t": "2026-10-11T20:00:34", "name": "Player 16", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 213669, "cat": "회비"}, {"id": "t20261011131216_iusids", "t": "2026-10-11T13:12:16", "name": "Player 14", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 193669, "cat": "회비"}, {"id": "t20261011113742_51yxkb", "t": "2026-10-11T11:37:42", "name": "Player 12", "type": "Transfer", "amt": -5200, "src": "toss", "bal": 173669, "memo": "Water", "cat": "물/간식"}, {"id": "t20261011113322_9ejlja", "t": "2026-10-11T11:33:22", "name": "Player 11", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 178869, "cat": "회비"}, {"id": "t20261009174322_1maatf8", "t": "2026-10-09T17:43:22", "name": "Player 12", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 158869, "cat": "회비"}, {"id": "t20261008190552_19ym61m", "t": "2026-10-08T19:05:52", "name": "Player 01", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 138869, "cat": "회비"}, {"id": "t20261008165725_6zxest", "t": "2026-10-08T16:57:25", "name": "Player 07", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 118869, "cat": "회비"}, {"id": "t20261008115958_1kgdjso", "t": "2026-10-08T11:59:58", "name": "Player 17", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 98869, "cat": "회비"}, {"id": "t20261008115935_1tn3qle", "t": "2026-10-08T11:59:35", "name": "Player 04", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 78869, "cat": "회비"}, {"id": "t20261007194133_9ho6t9", "t": "2026-10-07T19:41:33", "name": "Player 05", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 58869, "cat": "회비"}, {"id": "t20261007180552_158tgb0", "t": "2026-10-07T18:05:52", "name": "Player 06", "type": "Transfer", "amt": -36000, "src": "toss", "bal": 38869, "memo": "Pitch fee 10/11", "cat": "구장비"}, {"id": "t20261007121657_fcj9tu", "t": "2026-10-07T12:16:57", "name": "Player 09", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 74869, "cat": "회비"}, {"id": "t20261007121449_4ctm1c", "t": "2026-10-07T12:14:49", "name": "Player 03", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 54869, "cat": "회비"}, {"id": "t20261007121316_x3ev0q", "t": "2026-10-07T12:13:16", "name": "Player 15", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 34869, "cat": "회비"}, {"id": "t20261001035634_1p601g7", "t": "2026-10-01T03:56:34", "name": "Interest", "type": "Interest", "amt": 4, "src": "toss", "bal": 14869, "cat": "이자"}, {"id": "t20260926151513_1u4b0uo", "t": "2026-09-26T15:15:13", "name": "Player 23", "type": "Withdrawal", "amt": -65000, "src": "toss", "bal": 14865, "cat": "구장비"}, {"id": "t20260926151213_14yyih1", "t": "2026-09-26T15:12:13", "name": "Player 10", "type": "Deposit", "amt": 40000, "src": "toss", "bal": 79865, "month": "2026-10", "cat": "회비"}, {"id": "t20260926151145_ajnx97", "t": "2026-09-26T15:11:45", "name": "Oct dues", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 39865, "cat": "회비", "payer": "Player 10"}, {"id": "t20260926151032_qsodmw", "t": "2026-09-26T15:10:32", "name": "Player 10", "type": "Withdrawal", "amt": -20000, "src": "toss", "bal": 19865, "cat": "취소/상쇄"}, {"id": "t20260923102517_qo3woy", "t": "2026-09-23T10:25:17", "name": "Opponent captain", "type": "Deposit", "amt": 10000, "src": "toss", "bal": 39865, "cat": "구장비"}, {"id": "t20260917081755_1q4ybiz", "t": "2026-09-17T08:17:55", "name": "Player 05", "type": "Transfer", "amt": -29800, "src": "toss", "bal": 29865, "cat": "구장비"}, {"id": "t20260914164435_1evq94s", "t": "2026-09-14T16:44:35", "name": "Player 03", "type": "Deposit", "amt": 10000, "src": "toss", "bal": 59665, "month": "2026-09", "cat": "회비"}, {"id": "t20260914164401_700en5", "t": "2026-09-14T16:44:01", "name": "Player 06", "type": "Deposit", "amt": 10000, "src": "toss", "bal": 49665, "month": "2026-09", "cat": "회비"}, {"id": "t20260913192846_o4hot6", "t": "2026-09-13T19:28:46", "name": "Convenience store", "type": "Card", "amt": -11200, "src": "toss", "bal": 39665, "cat": "물/간식"}, {"id": "t20260906215130_mz6laq", "t": "2026-09-06T21:51:30", "name": "Player 18", "type": "Transfer", "amt": -48000, "src": "toss", "bal": 50865, "cat": "구장비"}, {"id": "t20260903152922_14lcjd1", "t": "2026-09-03T15:29:22", "name": "Player 04", "type": "Transfer", "amt": -20190, "src": "toss", "bal": 98865, "cat": "물/간식"}, {"id": "t20260901094236_18paqww", "t": "2026-09-01T09:42:36", "name": "Kit supplier", "type": "Transfer", "amt": -159500, "src": "toss", "bal": 119055, "cat": "유니폼"}, {"id": "t20260901033829_1ifje18", "t": "2026-09-01T03:38:29", "name": "Interest", "type": "Interest", "amt": 5, "src": "toss", "bal": 278555, "cat": "이자"}, {"id": "t20260831160656_n0ydq9", "t": "2026-08-31T16:06:56", "name": "Player 17", "type": "Deposit", "amt": 55000, "src": "toss", "bal": 278550, "cat": "유니폼"}, {"id": "t20260831014340_ual0y3", "t": "2026-08-31T01:43:40", "name": "Player 09", "type": "Transfer", "amt": -100000, "src": "toss", "bal": 223550, "cat": "장비"}, {"id": "t20260831010605_18rcqol", "t": "2026-08-31T01:06:05", "name": "Player 01", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 323550, "cat": "회비"}, {"id": "t20260830230140_qlckbe", "t": "2026-08-30T23:01:40", "name": "Player 15", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 303550, "cat": "회비"}, {"id": "t20260830225910_vp2uit", "t": "2026-08-30T22:59:10", "name": "Kits for 2 guest players", "type": "Deposit", "amt": 110000, "src": "toss", "bal": 283550, "cat": "유니폼"}, {"id": "t20260830225814_1ty5fqz", "t": "2026-08-30T22:58:14", "name": "Player 16", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 173550, "cat": "회비"}, {"id": "t20260830225805_1jxt0vc", "t": "2026-08-30T22:58:05", "name": "Player 02", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 153550, "cat": "회비"}, {"id": "t20260830225743_y0gou3", "t": "2026-08-30T22:57:43", "name": "Player 04", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 133550, "cat": "회비"}, {"id": "t20260830225717_l6a1bh", "t": "2026-08-30T22:57:17", "name": "Player 17", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 113550, "cat": "회비"}, {"id": "t20260830225648_mq2svf", "t": "2026-08-30T22:56:48", "name": "Player 08", "type": "Deposit", "amt": 10000, "src": "toss", "bal": 93550, "month": "2026-09", "cat": "회비"}, {"id": "t20260830225645_gnozes", "t": "2026-08-30T22:56:45", "name": "Player 12", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 83550, "cat": "회비"}, {"id": "t20260830225620_zdev61", "t": "2026-08-30T22:56:20", "name": "Player 12", "type": "Deposit", "amt": 10000, "src": "toss", "bal": 63550, "cat": "기타수입"}, {"id": "t20260830225548_fdu6o0", "t": "2026-08-30T22:55:48", "name": "Player 09", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 53550, "cat": "회비"}, {"id": "t20260830225153_9ixsqf", "t": "2026-08-30T22:51:53", "name": "Player 05", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 33550, "cat": "회비"}, {"id": "t20260830225025_1qdzbod", "t": "2026-08-30T22:50:25", "name": "Player 08", "type": "Withdrawal", "amt": -5700, "src": "toss", "bal": 13550, "cat": "물/간식"}, {"id": "t20260830161819_13e6oxf", "t": "2026-08-30T16:18:19", "name": "Cashback reversal", "type": "Withdrawal", "amt": -500, "src": "toss", "bal": 19250, "cat": "취소/상쇄"}, {"id": "t20260830161819_bmf70c", "t": "2026-08-30T16:18:19", "name": "Supermarket", "type": "Card", "amt": 17800, "src": "toss", "bal": 19750, "cat": "물/간식"}, {"id": "t20260830160946_8wtv6w", "t": "2026-08-30T16:09:46", "name": "Card cashback", "type": "Promo", "amt": 500, "src": "toss", "bal": 1950, "cat": "취소/상쇄"}, {"id": "t20260830160945_z1g04r", "t": "2026-08-30T16:09:45", "name": "Supermarket", "type": "Card", "amt": -17800, "src": "toss", "bal": 1450, "cat": "물/간식"}, {"id": "t20260829181521_102tuv1", "t": "2026-08-29T18:15:21", "name": "Sports store", "type": "Card", "amt": -78000, "src": "toss", "bal": 19250, "cat": "장비"}, {"id": "t20260829175211_1j0o5pr", "t": "2026-08-29T17:52:11", "name": "Player 10", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 97250, "cat": "회비"}, {"id": "t20260827224500_8a8rfe", "t": "2026-08-27T22:45:00", "name": "Player 04 (club acct)", "type": "Transfer", "amt": -14000, "src": "toss", "bal": 77250, "cat": "취소/상쇄"}, {"id": "t20260827224413_1boo9m7", "t": "2026-08-27T22:44:13", "name": "Player 01", "type": "Deposit", "amt": 14000, "src": "toss", "bal": 91250, "cat": "취소/상쇄"}, {"id": "t20260826205253_iw7x97", "t": "2026-08-26T20:52:53", "name": "Player 05", "type": "Transfer", "amt": -32500, "src": "toss", "bal": 77250, "cat": "구장비"}, {"id": "t20260821162331_1u476wk", "t": "2026-08-21T16:23:31", "name": "Player 16", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 109750, "cat": "회비"}, {"id": "t20260821160553_1kea54t", "t": "2026-08-21T16:05:53", "name": "Player 17", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 89750, "cat": "회비"}, {"id": "t20260820173224_1nrvgph", "t": "2026-08-20T17:32:24", "name": "Player 19", "type": "Transfer", "amt": -40000, "src": "toss", "bal": 69750, "cat": "구장비"}, {"id": "t20260820173053_1ltgpbg", "t": "2026-08-20T17:30:53", "name": "Player 20", "type": "Transfer", "amt": -12500, "src": "toss", "bal": 109750, "cat": "물/간식"}, {"id": "t20260820173032_15vp4ge", "t": "2026-08-20T17:30:32", "name": "Player 08", "type": "Transfer", "amt": -7750, "src": "toss", "bal": 122250, "cat": "물/간식"}, {"id": "t20260820003938_1aqn06p", "t": "2026-08-20T00:39:38", "name": "Player 04", "type": "Transfer", "amt": -71000, "src": "toss", "bal": 130000, "cat": "구장비"}, {"id": "t20260820003815_jk3wmo", "t": "2026-08-20T00:38:15", "name": "Player 10", "type": "Transfer", "amt": -39000, "src": "toss", "bal": 201000, "cat": "구장비"}, {"id": "t20260819180446_1hzax55", "t": "2026-08-19T18:04:46", "name": "Player 02", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 240000, "cat": "회비"}, {"id": "t20260818213752_flk70y", "t": "2026-08-18T21:37:52", "name": "Player 14", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 220000, "cat": "회비"}, {"id": "t20260817194846_1amgf3p", "t": "2026-08-17T19:48:46", "name": "Player 01", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 200000, "cat": "회비"}, {"id": "t20260817174814_vo3d1q", "t": "2026-08-17T17:48:14", "name": "Player 05", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 180000, "cat": "회비"}, {"id": "t20260817174422_739145", "t": "2026-08-17T17:44:22", "name": "Player 07", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 160000, "cat": "회비"}, {"id": "t20260817174245_rypfhb", "t": "2026-08-17T17:42:45", "name": "Player 15", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 140000, "cat": "회비"}, {"id": "t20260817173639_d19ul1", "t": "2026-08-17T17:36:39", "name": "Player 09", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 120000, "cat": "회비"}, {"id": "t20260817152101_yu6z7b", "t": "2026-08-17T15:21:01", "name": "Player 10", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 100000, "cat": "회비"}, {"id": "t20260817150038_d0vqju", "t": "2026-08-17T15:00:38", "name": "Player 08", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 80000, "cat": "회비"}, {"id": "t20260817145244_gp4nrd", "t": "2026-08-17T14:52:44", "name": "Player 12", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 60000, "cat": "회비"}, {"id": "t20260817145228_1tdp4kz", "t": "2026-08-17T14:52:28", "name": "Player 13", "type": "Deposit", "amt": 20000, "src": "toss", "bal": 40000, "cat": "회비"}, {"id": "t20260817144053_13xfq6y", "t": "2026-08-17T14:40:53", "name": "Player 04", "type": "Deposit", "amt": 20000, "src": "toss", "cat": "회비"}]};</script>
+<script>
+"use strict";
+const CATS_IN=["회비","연체료/벌금","유니폼","기타수입","이자"];
+const CATS_OUT=["구장비","물/간식","장비","회식","대회/참가비","경조사","기타지출"];
+const CATS_ALL=[...CATS_IN,...CATS_OUT,"취소/상쇄","미분류"];
+const NOT_OPEX=new Set(["회비","연체료/벌금","유니폼","기타수입","이자","취소/상쇄"]);
+const OPEX={has:k=>!NOT_OPEX.has(k)}; // 직접 입력한 새 분류도 지출로 세요
+/* 메모에 분류 이름(또는 아래 말)이 있으면 그 분류. 위에서부터 먼저 찾아요. */
+const MEMO_WORDS=[["구장비",["구장비","구장","대관"]],["연체료/벌금",["벌금","연체"]],["경조사",["경조","화환","축의","조의"]],["취소/상쇄",["환불","캐시백","취소"]],
+  ["유니폼",["유니폼","판타지스타"]],["대회/참가비",["참가비","대회"]],["회식",["회식"]],["물/간식",["물값","음료","간식","편의점","마트","GS25","지에스25"]],
+  ["장비",["장비","전술판","기계","윈윈스포츠"]],["기타수입",["기타수입"]],["기타지출",["기타지출"]],["회비",["회비"]]];
+const DEFAULT_CFG={dues:20000,uniform:55000,startBalance:0,startMonth:"2026-08",
+  rules:[],members:[],planned:[],payers:null,opex:null,horizon:6,
+  dueDay:10,lateFee:5000,adjustAmt:5000,lateFrom:"2026-12",adjust:{}};
+
+let db=null, canWrite=null, downloads=null;
+/* 관리자 모드: 비밀번호로 화면의 수정 기능을 엽니다. 실제 쓰기 권한은 공유 설정(보기 전용은 저장 불가)이 막아요. */
+// 관리자 로그인은 이 기기에 계속 유지돼요. ‘잠그기’를 누르면 풀려요.
+function adminKey(){try{return localStorage.getItem("hhfc-admin")||sessionStorage.getItem("hhfc-admin")}catch(_){return state.adminMem||null}}
+function setAdminKey(v){try{ if(v){localStorage.setItem("hhfc-admin",v)} else {localStorage.removeItem("hhfc-admin"); sessionStorage.removeItem("hhfc-admin")} }catch(_){} state.adminMem=v}
+function editable(){ if(canWrite===false||!db) return false; const c=cfg(); if(!c.pinHash) return true; return adminKey()===c.pinHash; }
+function viewKey(){try{return localStorage.getItem("hhfc-view")}catch(_){return state.viewMem||null}}
+function setViewKey(v){try{v?localStorage.setItem("hhfc-view",v):localStorage.removeItem("hhfc-view")}catch(_){} state.viewMem=v}
+function viewOk(){ const c=cfg(); if(!c.viewHash) return true; if(c.pinHash&&adminKey()===c.pinHash) return true; return viewKey()===c.viewHash; }
+const pwHash=pw=>sha("hhfc:"+pw);
+async function sha(text){ try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }catch(_){ return "h"+hash(text)+hash(text.split("").reverse().join("")); } }
+const state={tx:new Map(),cfg:null,cfgLoaded:false,txLoaded:false,filter:"all",month:"all"};
+let charts=[];
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* ---------- 언어 (한국어 / English) ---------- */
+const LANG=(()=>{ try{ const q=new URLSearchParams(location.search).get("lang"); if(q==="en"||q==="ko"){ localStorage.setItem("hhfc-lang",q); return q; } return localStorage.getItem("hhfc-lang")||window.__LANG_DEFAULT||"ko"; }catch(_){ return window.__LANG_DEFAULT||"ko"; } })();
+const EN=LANG==="en";
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const won=n=>EN?(n<0?"−":"")+"₩"+Math.abs(Math.round(n)).toLocaleString("en-US"):(n<0?"−":"")+Math.abs(Math.round(n)).toLocaleString("ko-KR")+"원";
+const wonS=n=>(n>0?"+":"")+won(n);
+const ym=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+const addM=(k,n)=>{let[y,m]=k.split("-").map(Number);m+=n;while(m>12){m-=12;y++}while(m<1){m+=12;y--}return y+"-"+String(m).padStart(2,"0")};
+const mLabel=k=>{const[y,m]=k.split("-");return EN?`${MON[Number(m)-1]} '${y.slice(2)}`:`${y.slice(2)}년 ${Number(m)}월`};
+const DICT={", 또는 징수율": ", or collection rate of", "/ {n}명": "/ {n}", "CSV로 내보내기": "Export CSV", "{m} 지출": "{m} spending", "{m} 회비": "{m} dues", "PC에서는 끌어다 놓아도 돼요 · .xlsx, .csv": "On a computer you can drag & drop · .xlsx, .csv", "{a} 납부 · 낼 돈 {a}": "Paid {a} · due {a}", "{a} 납부 · 낼 돈 {a}. 누르면 불참 조정({a}) 켜고 끄기": "Paid {a} · due {a}. Tap to toggle absence rate ({a})", "{m}회비": "{m} dues", "{n}/{n} {n}:{n} 반영본": "Published {n}/{n} {n}:{n}", "{n}/{n} {n}:{n} 반영본 ·": "Published {n}/{n} {n}:{n} ·", "{n}/{n} 구장비": "Pitch fee for {n}/{n}", "{n}개월 ({n}주)": "{n} months ({n} weeks)", "{n}개월 · 징계 검토": "{n} mo · review", "{n}개월 뒤 · 가장 낮을 때 {a} ({n}/{n} 주)": "In {n} months · lowest {a} (week of {n}/{n})", "{n}건": "{n}", "{n}건 · 합계": "{n} items · total", "{n}만": "{n}0K", "{n}만원 입금은 메모가 없어도 회비로 들어가요.": "₩{n}0,000 deposits count as dues even without a memo.", "{n}만원 입금은 메모가 없어도 회비로 들어가요. 올린 뒤에는 홈의": "₩{n}0,000 deposits count as dues even without a memo. After uploading, tap", "{n}일이 지나면 {n}주마다 {a}이에요(제{n}조). 회비보다 더 낸 금액과 ‘연체료/벌금’으로 분류한 입금은 연체료나 벌금을 낸 것으로 세요.": "After the {n}th, {n} week late = {a} (Art. {n}). Amounts paid above dues and deposits tagged ‘Late fee/Fine’ count as fees paid.", "{n}회": "{n}×", "{n}회 구장비": "Pitch fee per game", "· 보낼 때 메모에": "· When sending, put", "가입 월": "Joined", "가정": "Assumptions", "거래": "Ledger", "거래내역": "Ledger", "거래내역서 올리기": "Upload statement", "경조 → 경조사": "경조 → Gifts", "경조사": "Gifts & condolences", "경조사(제{n}조)나 큰 지출 대비": "Buffer for gifts (Art. {n}) or big expenses", "관리자": "Admin", "관리자 로그인": "Admin login", "관리자 모드": "Admin mode", "관리자 비밀번호": "Admin password", "관리자 비밀번호 (본인·김민성)": "Admin password (officers only)", "관리자 비밀번호 바꾸기": "Change admin password", "관리자가 이 화면을 열 때마다 다음 달 예측이 저장돼요. {m}이 끝나면 여기에 예측과 실제가 나란히 나와요.": "Each time an admin opens this page, next month's forecast is saved. After {m} ends, forecast and actual appear side by side here.", "구분": "Type", "구장비": "Pitch fees", "구장비 · 물·기타": "Pitch fee · water & misc", "구장비 → 구장비": "구장비 → Pitch fees", "구장비, 물값, 장비, 회식, 대회, 벌금, 경조사": "a category word (pitch, water, gear, dinner, tournament, fine, gift)", "금액": "Amount", "기간": "Horizon", "기본": "Base", "기본 · 최근 실적 그대로": "Base · recent actuals", "기본 설정": "Basics", "기본 시나리오는 괜찮지만, 보수적으로 보면": "Base case is fine, but in the downside case the balance runs out in", "기준 기간 결제 평균 {a}": "Base-period average {a}", "기준 기간 중앙값 {a}. 장비·유니폼·대회·회식·경조사는 일회성이라 빼요": "Base-period median {a}. Gear, uniforms, tournaments, dinners and gifts are one-offs, so excluded", "기준 기간 평균 {n}%": "Base-period average {n}%", "기타수입": "Other income", "기타수입 → 기타수입": "기타수입 → Other income", "기타지출": "Other spending", "기타지출 → 기타지출": "기타지출 → Other spending", "나갈 돈": "Out", "낙관적": "Upside", "낙관적 · 징수율 {n}%p, 지출 {n}%": "Upside · collection {n}pp, costs {n}%", "날짜": "Date", "남은 기간": "rest of month", "납부": "Paid", "내역서 올리기": "Upload", "내용": "Description", "낸 사람": "Payer", "낸 사람 고르기": "Choose payer", "눌러서 엑셀 파일 고르기": "Tap to choose the Excel file", "눌러서 열기": "tap to open", "눌러서 파일 올리기": "Tap to upload a file", "다음 업로드 오늘": "Next upload: today", "대시보드": "Dashboard", "대회 참가비, 새 유니폼, 연말 회식, 경조사 화환처럼 미리 아는 큰 지출을 넣으면 그달은 평균 대신 이 금액으로 계산해요.": "Add known big costs (tournament fees, new kits, year-end dinner, flowers). That month uses this amount instead of the average.", "대회/참가비": "Tournaments", "들어가기": "Enter", "들어올 돈": "In", "매주 월요일 추천 · 회비 마감({n}일)이 지난 주라 미납·연체도 같이 확인돼요": "Every Monday recommended · dues deadline (the {n}th) just passed, so you can check unpaid and late too", "메모": "Memo", "메모 쓰는 법": "How to write memos", "메모대로 되돌리기": "Back to memo-based", "메모대로: 구장비": "From memo: Pitch fees", "메모대로: 기타지출": "From memo: Other spending", "메모대로: 기타수입": "From memo: Other income", "메모대로: 물/간식": "From memo: Water & snacks", "메모대로: 유니폼": "From memo: Uniforms", "메모대로: 이자": "From memo: Interest", "메모대로: 장비": "From memo: Gear", "메모대로: 취소/상쇄": "From memo: Reversal", "메모대로: 회비": "From memo: Dues", "메모대로: 미분류": "From memo: Unclassified", "메모대로: 회식": "From memo: Team dinner", "메모대로: 대회/참가비": "From memo: Tournaments", "메모대로: 경조사": "From memo: Gifts", "메모대로: 연체료/벌금": "From memo: Late fee/Fine", "명": "", "명단 기준 {n}명": "{n} on the roster", "명단에 없는 이름으로 들어온 회비 {n}건": "{n} dues payments from names not on the roster", "목표 예비비": "Target reserve", "물/간식": "Water & snacks", "물·기타": "water & misc", "물값": "Water", "물값 → 물/간식": "물값 → Water & snacks", "미납": "Unpaid", "미분류": "Unclassified", "민감도: {n}개월 뒤 잔액": "Sensitivity: balance in {n} months", "반복 지출 (물·기타, 월)": "Recurring costs (water & misc, monthly)", "반영 안 된 변경 있음": "unpublished changes", "벌금 → 연체료/벌금": "벌금 → Late fee/Fine", "보기": "View", "보수적": "Downside", "보수적 · 징수율 {n}%p, 지출 {n}%": "Downside · collection {n}pp, costs {n}%", "분류": "Category", "불러오는 중…": "Loading…", "불참 조정 회비": "Absence rate", "불참 조정({a} 제{n}조)": "absence rate ({a}, Art. {n})", "빼기": "Remove", "새 거래": "New transactions:", "새 비밀번호, {n}자 이상": "New password, {n}+ characters", "선택": "optional", "설정": "Settings", "손익분기 회비": "Break-even dues", "수입": "Income", "순증감": "Net", "시작 잔액": "Opening balance", "아직 없어요.": "None yet.", "아직 연체된 회비가 없어요.": "No late dues yet.", "앞으로 {n}주": "Next {n} weeks", "없음": "None", "에 잔액이 바닥나요. 지금 지출을 회비만으로 맞추려면 {n}인당": ". To cover current costs with dues alone, each member needs", "연속 미납": "Unpaid streak", "연체료 ({n}주당)": "Late fee (per {n} week)", "연체료 적용 시작 월": "Late fees apply from", "연체료/벌금": "Late fee/Fine", "연체료·벌금으로 들어온 돈: 권도연 {a}": "Late fees/fines received: {a}", "예: 겨울 대회 참가비": "e.g. Winter tournament fee", "예: 현금 회비 김OO": "e.g. Cash dues from a member", "예: 심판비": "e.g. Referee fee", "예비비 {a} 아래로 내려가는 주가 있어요": "Dips below the {a} reserve in some weeks", "예비비 {a} 이상 유지": "Stays above the {a} reserve", "예상 잔액": "Projected balance", "예정된 일회성 지출": "Planned one-off costs", "예측": "Forecast", "예측 vs 실적": "Forecast vs actual", "예측 보기 →": "Forecast →", "오늘": "Today", "오늘 잔액 {a}에서 출발해요. {n}일 전후 회비가 들어오면 올라가고, 시합하는 일요일마다 구장비와 물값이 나가서 내려가요. 매달 첫 주에는 일회성 지출 예비가 빠져요.": "Starts from today's balance of {a}. It rises when dues come in around the {n}th and falls each match Sunday with pitch and water costs. A one-off buffer is taken in the first week of each month.", "용병 {n}명 유니폼 값": "Kits for {n} guest players", "원": "₩", "월": "Month", "월 회비": "Monthly dues", "월 회비 ({n}인)": "Monthly dues (per person)", "월말 잔액": "Month-end", "월말 잔액과 {n}개월 예상 차트": "Balance and {n}-month forecast chart", "월별 합계 (기본)": "Monthly totals (base)", "유니폼": "Uniforms", "유니폼 → 유니폼": "유니폼 → Uniforms", "으로 바꾸거나 되돌릴 수 있어요. {n}개월 넘게 계속 미납이면 ‘징계 검토’로 표시돼요(제{n}조).": "or back. {n}+ months unpaid in a row is flagged ‘review’ (Art. {n}).", "은행 증명서 발급하기 → 예금 → 거래내역 확인서": "Issue bank certificate → Deposits → Transaction statement", "을 누르면 최신 데이터가 든 새 파일이 생겨요. 그 파일이 곧 백업이고 팀원 공유용이에요.": "to create a new file with the latest data. That file is both your backup and the team copy.", "을 눌러주세요.": ".", "을 추가했어요. 이미 장부에 있던 {n}건은 건너뛰었어요. 확인이 필요한 거래는 거래내역 탭의 ‘확인 필요’에서 볼 수 있어요.": "added. Skipped {n} already in the ledger. Items to review are under ‘Needs review’ in the Ledger tab.", "이 달 회비부터 연체료를 계산해요": "Late fees are counted from this month's dues", "이 장부는 파일 하나로 돌아가요. 업로드한 뒤 홈의": "This ledger runs as a single file. After uploading, tap", "이름": "Name", "이메일로 받은 엑셀 파일을 여기에 올리기": "Upload the Excel file you received by email here", "이미 장부에 있는 거래는 자동으로 건너뛰어요. 기간이 겹쳐도 괜찮아요.": "Transactions already in the ledger are skipped, so overlapping periods are fine.", "이상이면 돼요.": "is enough.", "이자": "Interest", "일회성": "One-off", "일회성 예비 · 구장비 · 물·기타": "One-off buffer · pitch fee · water & misc", "일회성 예비": "One-off buffer", "일회성 지출 (월 평균)": "One-off costs (monthly average)", "임원진만 거래내역을 올리고 수정할 수 있어요. 한 번 들어가면 이 기기에서는 ‘잠그기’를 누르기 전까지 계속 유지돼요.": "Only officers can upload and edit. Once signed in, this device stays signed in until you tap ‘Lock’.", "자동": "Auto", "잔액": "Balance", "잔액 예측": "Forecast", "잠그기": "Lock", "장부 마지막 거래 {m}": "Last transaction {m}", "장부 시작 월": "Ledger start month", "장부를 불러오는 중이에요…": "Loading the ledger…", "장비": "Gear", "장비 → 장비": "장비 → Gear", "적요가 이름이 아닌 입금(예: ‘{m}회비’)은 누가 냈는지 골라주세요. 그 회원의 납부로 들어가요.": "For deposits whose description isn't a name (e.g. ‘Oct dues’), choose who paid. It counts as that member's payment.", "전체": "All", "점선은 앞으로 {n}주 예상": "Dashed: next {n} weeks", "주": "Week", "주말 잔액": "Week-end balance", "주별 잔액": "Weekly balance", "주별 잔액 전망": "Weekly balance outlook", "주별 잔액 전망 차트": "Weekly balance outlook chart", "주별 현금흐름 (기본)": "Weekly cash flow (base)", "지금 통장에 있는 돈": "Current balance", "지금까지 장비·대회·회식·경조사 {a} ÷ {n}개월. 예정 지출을 넣은 달은 둘 중 큰 금액을 써요": "Gear, tournaments, dinners and gifts so far {a} ÷ {n} months. Months with a planned cost use the larger amount", "지출": "Expense", "직접 입력…": "Custom…", "징수율 \\ 회비": "Collection \\ dues", "참가비 → 대회/참가비": "참가비 → Tournaments", "처럼 분류 이름을 쓰면 그대로 분류돼요.": "in the memo and it's categorized automatically.", "첫 거래 전에 통장에 있던 돈": "Money in the account before the first transaction", "최근 실적으로 되돌리기": "Reset to recent actuals", "추가": "Add", "취소": "Cancel", "취소/상쇄": "Reversal", "토스 거래내역서 올리기": "Upload Toss bank statement", "토스 거래내역서 파일 올리기": "Upload Toss bank statement file", "토스 앱 → 토스뱅크 → 오른쪽 위 설정": "Toss app → Toss Bank → Settings (top right)", "토스 잔액과 일치": "Matches bank balance", "토스로 보낼 때 메모에 분류 이름을 쓰면 올릴 때 그대로 분류돼요. 다른 말을 써도 메모는 그대로 보여요. 분류는 거래내역에서 언제든 바꾸거나 직접 입력할 수 있어요.": "Write a category word in the Toss memo when sending and it's categorized on upload. Other memos are kept as-is. You can change or type a category in the Ledger anytime.", "토스에서 받는 법": "How to get it from Toss", "통장을 거치지 않은 현금 거래를 적을 때 쓰세요. 통장 거래는 토스 엑셀로 불러오면 자동으로 들어와요.": "For cash that never touched the account. Bank transactions come in automatically from the Toss Excel file.", "팀원은 링크로 들어오면 보기만 할 수 있어요. 관리자 비밀번호를 넣어야 올리기·수정이 열려요.": "Members opening the link can only view. The admin password unlocks uploads and edits.", "파일 저장": "Save file", "페이지": "Pages", "하나해 FC": "HANA HAE FC", "한": "한", "한 달 시합(구장비) 횟수": "Games per month (pitch bookings)", "한 달 지출 {a} ÷ 내는 사람 {n}명": "Monthly costs {a} ÷ {n} paying members", "한국어로 보기": "한국어로 보기", "해당하는 거래가 없어요.": "No matching transactions.", "현금 거래 직접 입력": "Add a cash transaction", "현금 입력": "Add cash", "홈": "Home", "확인 필요 ({n})": "Needs review ({n})", "확인 필요": "Needs review", "환불 → 취소/상쇄": "환불 → Reversal", "활동": "Active", "활동 회원 수": "Active members", "활동으로": "Reactivate", "회": "×", "회비": "Dues", "회비 {n}명": "Dues · {n} members", "회비 {n}명 · 구장비 · 물·기타": "Dues · {n} members · pitch fee · water & misc", "회비 → 회비": "회비 → Dues", "회비 납부": "Dues", "회비 납부 {n}%": "Dues paid {n}%", "회비 마감일 (매월)": "Dues deadline (day of month)", "회비 월": "Dues month", "회비 장부": "Dues Ledger", "회비 징수율": "Collection rate", "회비 통장 고르고, 기간은 최근 {n}~{n}주로 선택": "Pick the club account and the last {n}–{n} weeks", "회비통장에서 나가는 횟수. 통장 기록 평균은 {n}회예요(개인 돈으로 낸 건 빼요)": "Times paid from the club account. Bank-record average is {n} (personal payments excluded)", "회식": "Team dinner", "회식 → 회식": "회식 → Team dinner", "회원 명단": "Roster", "회원별 회비 납부 현황": "Dues by member", "회칙": "Club rules", "회칙 제{n}조": "Club rules, Art. {n}", "회칙 제{n}조에 따라 매월 {n}일까지 {a}이에요. {n}일 이후에 낸 돈은 다음 달 회비로 세요. {n}개월 넘게 계속 미납이면 ‘징계 검토’로 표시돼요(제{n}조).": "Per Art. {n}, dues are due by the {n}th each month ({a}). Payments after the {n}th count toward next month. {n}+ months unpaid in a row is flagged ‘review’ (Art. {n}).", "회칙 제{n}조에 따라 매월 {n}일까지 {a}이에요. {n}일 이후에 낸 돈은 다음 달 회비로 세요. 칸을 누르면 그달을": "Per Art. {n}, dues are due by the {n}th each month ({a}). Payments after the {n}th count toward next month. Tap a cell to set that month to the", "회칙상 연체료 ({m}분부터)": "Late fees per club rules (from {m})", "휴면": "Inactive", "휴면 회원은 미납으로 세지 않아요. 가입 월은 첫 회비를 낸 달로 두면 돼요(제{n}조).": "Inactive members aren't counted as unpaid. Set the join month to the month of their first dues (Art. {n}).", "휴면으로": "Set inactive", "기준: {m}·{m} 실적 ({m}은 중간에 시작한 달이라 뺐어요)": "Basis: {m}–{m} actuals ({m} excluded as a partial month)", "기준: {m}·{m} 실적": "Basis: {m}–{m} actuals", "기준: {m}·{m}·{m} 실적": "Basis: {m}–{m} actuals", "기준: {m}·{m}·{m} 실적 ({m}은 중간에 시작한 달이라 뺐어요)": "Basis: {m}–{m} actuals ({m} excluded as a partial month)", "연체료·벌금으로 들어온 돈: Player {n} {a}": "Late fees/fines received: Player {n} {a}", ", 보수적으로 봐도 {a}이에요. 지금 지출을 회비만으로 맞추려면 {n}인당": ". Even in the downside case it's {a}. To cover current costs with dues alone, each member needs", "기본 시나리오로도": "Even in the base case, the balance goes negative in", "에 잔액이 마이너스가 돼요. 지금 지출을 회비만으로 맞추려면 {n}인당": ". To cover current costs with dues alone, each member needs", "매달 평균": "Averaging", "흐름이에요. {n}개월 뒤 예상 잔액은": "per month. Projected balance in {n} months:", "물·기타 · 일회성 예비": "water & misc · one-off buffer", "회비 {n}명 · 물·기타": "Dues · {n} members · water & misc", "회비 {n}명 · 구장비": "Dues · {n} members · pitch fee", "링크에 반영했어요. 팀원 화면에는 보통 {n}~{n}분, 늦으면 {n}분 안에 바뀌어요.": "Published. Members see it in {n}–{n} min, at most {n} min.", "링크에 반영했어요. 팀원 화면에는 보통 {n}~{n}분, 늦으면 {n}분 안에 바뀌어요. 맨 위에 ‘{n}/{n} {n}:{n} 반영본’이 보이면 최신이에요.": "Published. Members see it in {n}–{n} min, at most {n} min. ‘Published {n}/{n} {n}:{n}’ at the top means it's current.", "‘거래 금액’ 열을 찾지 못했어요.": "Couldn't find the ‘Amount’ column.", "‘거래 일시’ 열을 찾지 못했어요. 토스 거래내역서 엑셀인지 확인해주세요.": "Couldn't find the ‘Date’ column. Check that it's a Toss statement Excel file.", "관리자 비밀번호를 바꿨어요. 김민성에게만 알려주세요.": "Admin password changed. Share it with officers only.", "내보내기를 취소했거나 하지 못했어요.": "Export was cancelled or failed.", "링크에 반영하는 중…": "Publishing…", "반영하지 못했어요.": "Couldn't publish.", "이 계정은 보기만 할 수 있어요. 수정하려면 장부 주인에게 편집 권한을 받아야 해요.": "This account can only view. Ask the owner for edit access.", "이 브라우저에 저장하지 못했어요. 백업 파일을 꼭 저장해 두세요.": "Couldn't save in this browser. Please save a backup file.", "이 화면에서는 파일 저장이 안 돼요.": "Saving files isn't available here.", "장부를 아직 불러오지 못했어요. 인터넷 연결을 확인해주세요.": "Still loading the ledger. Check your connection.", "저장 공간이 가득 찼어요. 오래된 거래를 정리한 뒤 다시 해주세요.": "Storage is full. Remove old transactions and try again.", "지금은 장부에 저장할 수 없어서 불러올 수 없어요.": "Can't import right now because the ledger can't be saved.", "처음 한 번만, 설정 탭에서 GitHub 토큰을 넣어주세요.": "One-time setup: add a GitHub token in Settings.", "최신 장부 파일을 저장했어요. 이 파일을 단톡방에 올리면 팀원은 보기만 되고, 관리자는 이 파일을 열어서 비밀번호로 이어서 관리하면 돼요.": "Saved the latest ledger file. Members can only view it; officers can open it and continue with the password.", "추가했어요.": "Added.", "토큰을 저장했어요. 이제 홈의 ‘링크에 반영’ 버튼을 쓰면 돼요.": "Token saved. Use ‘Publish’ on Home from now on.", "파일을 읽지 못했어요. 토스에서 받은 엑셀 파일이 맞는지 확인해주세요.": "Couldn't read the file. Check that it's the Excel file from Toss.", "파일을 저장하지 못했어요. 잠시 뒤 다시 해주세요.": "Couldn't save the file. Please try again.", "{n}건 저장하는 중…": "Saving {n}…", "링크에 반영": "Publish", "링크 반영용 GitHub 토큰": "GitHub token for publishing", "토큰 저장": "Save token", "토큰": "Token", "저장돼 있어요.": "Saved.", "처음 한 번만 넣으면 돼요. 이 기기 브라우저에만 저장되고, 장부 파일에는 들어가지 않아요.": "Enter it once. It's stored only in this browser, never in the ledger file.", "장부를 보려면 claude.ai에 로그인해야 해요.": "Sign in to claude.ai to view the ledger.", "데모 · 이름 가림": "Demo · member names anonymized", "맞아요": "Correct", "추정": "Estimate", "모두 냈어요": "Everyone has paid", "아직 안 낸 사람 (마감 {n}일)": "Not yet paid (due the {n}th)", "아직 지출이 없어요.": "No spending yet.", "미납 {n}명": "{n} unpaid", "전원 납부": "All paid", "아직": "Pending", "조정 납부": "Absence paid", "조정 미납": "Absence unpaid", "조정 아직": "Absence pending", "없어요.": "None.", "{n}개월": "{n} mo"};
+const SNAP=window.__SNAP||null; // 공유용 파일: 데이터가 파일 안에 들어 있고, 보기만 돼요
+const today=()=>SNAP?new Date(SNAP.at):new Date();
+const isPersonName=n=>!!n&&(/^Player \d+$/.test(n)||!/\d|회비|입금|송금|환불|유니폼|구장|주장|\(|주식회사|\(주\)|dues/i.test(n)); // ‘10월회비’ 같은 적요는 사람이 아니에요
+function cfg(){ const c=Object.assign({},DEFAULT_CFG,state.cfg||{}); c.members=(c.members||[]).filter(m=>isPersonName(m.name)); return c; }
+function dt(t){return new Date(t.t)}
+function hash(s){let h=5381;for(const ch of s)h=((h*33)^ch.codePointAt(0))>>>0;return h.toString(36)}
+function txId(iso,name,amt,bal){return "t"+iso.replace(/\D/g,"").slice(0,14)+"_"+hash(name+"|"+amt+"|"+(bal??""))}
+function baseName(n){return String(n||"").replace(/\(.*$/,"").trim()}
+
+function classify(t,c){
+  if(t.cat) return {cat:t.cat,auto:false};
+  if(t.type==="이자입금") return {cat:"이자",auto:true};
+  const memo=(t.memo||"").trim(); const text=memo+" "+(t.name||"");
+  for(const [cat,words] of MEMO_WORDS) if(words.some(w=>text.includes(w))) return {cat,auto:true};
+  if(t.amt===c.dues) return {cat:"회비",auto:true};
+  if(memo) return {cat:t.amt>0?"기타수입":"기타지출",auto:true};
+  return {cat:t.amt>0?"기타수입":"미분류",auto:true,check:true};
+}
+function dueMonth(t){ if(t.month) return t.month; const d=dt(t); const k=ym(d); return d.getDate()>=25?addM(k,1):k; }
+function payer(t){return t.payer||baseName(t.name)}
+
+function rows(){
+  const c=cfg();
+  return [...state.tx.values()].map(t=>{const k=classify(t,c);return Object.assign({},t,{_cat:k.cat,_auto:k.auto,_check:!!k.check,_rule:k.rule,_guess:k.guess||null,_m:ym(dt(t))})})
+    .sort((a,b)=>a.t<b.t?1:a.t>b.t?-1:0);
+}
+function months(rs){ const c=cfg(); const cur=ym(today()); const out=[]; let k=c.startMonth;
+  const first=rs.length?rs[rs.length-1]._m:cur; if(first<k)k=first;
+  while(k<=cur){out.push(k);k=addM(k,1)} return out; }
+function monthAgg(rs){ const c=cfg(); const a={}; const add=(m,k,v)=>{(a[m]??={}); a[m][k]=(a[m][k]||0)+v};
+  for(const r of rs){ if(r._cat==="회비"&&r.amt>c.dues){ const extra=r.amt%c.dues; add(r._m,"회비",r.amt-extra); if(extra) add(r._m,"연체료/벌금",extra); } else add(r._m,r._cat,r.amt); } return a; }
+function opexOf(m){return Object.entries(m||{}).reduce((s,[k,v])=>OPEX.has(k)?s+v:s,0)}
+function req(name,m){const c=cfg();return c.adjust&&c.adjust[name+"|"+m]?c.adjustAmt:c.dues}
+function duesMatrix(rs){ const c=cfg(); const map={}; const unknown=[];
+  const names=new Set(c.members.map(m=>m.name));
+  for(const r of [...rs].reverse()){ if(r._cat!=="회비")continue; const p=payer(r); const m=dueMonth(r);
+    if(!names.has(p)){unknown.push(r);continue}
+    (map[p]??={});
+    const add=(k,v)=>{const e=(map[p][k]??={amt:0,last:null}); e.amt+=v; e.last=r.t;};
+    const n=Math.floor(r.amt/c.dues); // 4만원이면 두 달치, 2.5만원이면 한 달치 + 연체료
+    if(n>=1){ for(let i=0;i<n;i++) add(addM(m,i),c.dues); } else add(m,r.amt); }
+  return {map,unknown};
+}
+const paidAmt=(mx,n,m)=>mx.map[n]?.[m]?.amt||0;
+function lateInfo(rs){ // 회칙 제4조: 매월 dueDay일까지, 연체 1주당 lateFee
+  const c=cfg(); const mx=duesMatrix(rs); const now=today(); const list=[];
+  for(const mem of c.members){ if(mem.active===false) continue;
+    for(const m of months(rs)){ if(m<c.lateFrom||m<(mem.since||c.startMonth)) continue;
+      const e=mx.map[mem.name]?.[m]; const need=req(mem.name,m);
+      const deadline=new Date(`${m}-${String(c.dueDay).padStart(2,"0")}T23:59:59`);
+      const paid=e&&e.amt>=need; const end=paid?new Date(e.last):now;
+      if(end<=deadline) continue;
+      const weeks=Math.ceil((end-deadline)/(7*864e5));
+      list.push({name:mem.name,m,paid,paidAt:paid?e.last:null,weeks,fee:weeks*c.lateFee}); } }
+  const paidFees={};
+  for(const r of rs){ const p=payer(r);
+    if(r._cat==="회비"&&r.amt%c.dues&&r.amt>c.dues) paidFees[p]=(paidFees[p]||0)+r.amt%c.dues;
+    if(r._cat==="연체료/벌금") paidFees[p]=(paidFees[p]||0)+r.amt; }
+  return {list,paidFees};
+}
+function streak(mx,name,rs){ const c=cfg(); const cur=ym(today()); const ms=months(rs).filter(m=>m<cur||today().getDate()>c.dueDay); let n=0;
+  for(let i=ms.length-1;i>=0;i--){ if(paidAmt(mx,name,ms[i])>=req(name,ms[i])) break; n++; } return n; }
+function paidCount(mx,m){const c=cfg();return c.members.filter(x=>x.active!==false&&paidAmt(mx,x.name,m)>=req(x.name,m)).length}
+
+/* ---------- writes ---------- */
+const I18N_MISS=new Set();
+const TR_RX=/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '\d{2}|−?₩[\d,]+|(\d{2})년 (\d{1,2})월|(\d{1,2})월 (\d{1,2})일|(\d{1,2})월|[+−]?\d[\d,.]*/g;
+function trText(s){
+  if(!EN||!s||!/[가-힣]/.test(s)) return s;
+  const lead=s.match(/^\s*/)[0], trail=s.match(/\s*$/)[0], core=s.trim(); const toks=[];
+  const key=core.replace(TR_RX,(m,y,mo1,mo2,d,mo3)=>{ if(/^[A-Z][a-z]{2} '/.test(m)){toks.push(m);return "{m}"} if(m.includes("₩")){toks.push(m);return "{a}"} if(y){toks.push(`${MON[mo1-1]} '${y}`);return "{m}"} if(mo2){toks.push(`${MON[mo2-1]} ${d}`);return "{m}"} if(mo3){toks.push(MON[mo3-1]);return "{m}"} toks.push(m);return "{n}"; });
+  const en=DICT[key]; if(en==null){ I18N_MISS.add(key); return s; }
+  let i=0; return lead+en.replace(/\{[amn]\}/g,()=>toks[i++]??"")+trail;
+}
+function trTree(root){
+  if(!EN||!root) return;
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&/^(SCRIPT|STYLE|TEXTAREA)$/.test(n.parentElement.tagName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+  const ns=[]; while(w.nextNode()) ns.push(w.currentNode); for(const n of ns){ const t=trText(n.nodeValue); if(t!==n.nodeValue) n.nodeValue=t; }
+  root.querySelectorAll?.("[placeholder],[aria-label],[title]").forEach(el=>{ for(const a of ["placeholder","aria-label","title"]){ const v=el.getAttribute(a); if(v){ const t=trText(v); if(t!==v) el.setAttribute(a,t);} } });
+}
+function trChart(ch){ if(!EN||!ch) return ch; ch.data.labels=(ch.data.labels||[]).map(l=>typeof l==="string"?trText(l):l); ch.data.datasets.forEach(d=>d.label=trText(d.label)); ch.update("none"); return ch; }
+function say(html,kind="info",ms=6000){ const el=$("#msg"); el.innerHTML=`<div class="banner ${kind}">${html}</div>`; trTree(el); if(ms) setTimeout(()=>{if(el.innerHTML.includes(html))el.innerHTML=""},ms); }
+function writeErr(e){ if(e&&e.code==="invalid_argument"&&canWrite!==true){canWrite=false;render();say("이 계정은 보기만 할 수 있어요. 수정하려면 장부 주인에게 편집 권한을 받아야 해요.","warn",0);return}
+  if(e&&e.code==="quota_exceeded"){say("저장 공간이 가득 찼어요. 오래된 거래를 정리한 뒤 다시 해주세요.","bad",0);return}
+  say("저장하지 못했어요. 잠시 뒤 다시 해주세요. ("+esc(e?.code||e)+")","bad"); }
+async function saveTx(id,data){ try{ await db.doc("tx/"+id).set(data); }catch(e){ writeErr(e); throw e; } }
+async function patchTx(id,fields){ const cur=state.tx.get(id); if(!cur)return; const next=Object.assign({},cur,fields); delete next.id; for(const k in next) if(next[k]===""||next[k]==null) delete next[k]; await saveTx(id,next); }
+async function saveCfg(fields){ const next=Object.assign({},cfg(),fields); try{ await db.doc("config/main").set(next); }catch(e){ writeErr(e); } }
+
+/* ---------- import ---------- */
+function toIso(v){
+  if(v instanceof Date) return new Date(v.getTime()-v.getTimezoneOffset()*6e4).toISOString().slice(0,19);
+  const s=String(v).trim(); const m=s.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})[ T]*(\d{1,2})?:?(\d{2})?:?(\d{2})?/);
+  if(!m) return null; const p=x=>String(x||0).padStart(2,"0");
+  return `${m[1]}-${p(m[2])}-${p(m[3])}T${p(m[4])}:${p(m[5])}:${p(m[6])}`;
+}
+const toNum=v=>typeof v==="number"?v:Number(String(v??"").replace(/[^\d.\-]/g,""));
+async function importFile(file){
+  if(!db){say("지금은 장부에 저장할 수 없어서 불러올 수 없어요.","bad");return}
+  const buf=await file.arrayBuffer();
+  let grid;
+  try{ const wb=XLSX.read(buf,{type:"array",cellDates:true}); const ws=wb.Sheets[wb.SheetNames[0]]; grid=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}); }
+  catch(e){ say("파일을 읽지 못했어요. 토스에서 받은 엑셀 파일이 맞는지 확인해주세요.","bad"); return; }
+  const hi=grid.findIndex(r=>r&&r.some(c=>String(c||"").replace(/\s/g,"")==="거래일시"));
+  if(hi<0){say("‘거래 일시’ 열을 찾지 못했어요. 토스 거래내역서 엑셀인지 확인해주세요.","bad");return}
+  const H=grid[hi].map(c=>String(c||"").replace(/\s/g,""));
+  const col=n=>H.indexOf(n);
+  const ci={t:col("거래일시"),name:col("적요"),type:col("거래유형"),amt:col("거래금액"),bal:col("거래후잔액"),memo:col("메모")};
+  if(ci.amt<0){say("‘거래 금액’ 열을 찾지 못했어요.","bad");return}
+  let added=0,skipped=0,bad=0;
+  const todo=[];
+  for(const r of grid.slice(hi+1)){
+    if(!r||r[ci.t]==null||r[ci.t]==="") continue;
+    const iso=toIso(r[ci.t]); const amt=toNum(r[ci.amt]);
+    if(!iso||!isFinite(amt)){bad++;continue}
+    const name=String(r[ci.name]??"").trim(); const balRaw=ci.bal>=0?r[ci.bal]:null;
+    const bal=balRaw==null||balRaw===""?null:toNum(balRaw);
+    const id=txId(iso,name,amt,bal);
+    if(state.tx.has(id)){skipped++;continue}
+    const d={t:iso,name,type:ci.type>=0?String(r[ci.type]??""):"",amt,src:"toss"};
+    if(bal!=null&&isFinite(bal)) d.bal=bal;
+    const memo=ci.memo>=0?String(r[ci.memo]??"").trim():""; if(memo) d.memo=memo;
+    todo.push([id,d]);
+  }
+  say(`${todo.length}건 저장하는 중…`,"info",0);
+  for(const [id,d] of todo){ try{ await db.doc("tx/"+id).set(d); added++; }catch(e){ writeErr(e); break; } }
+  if(added||skipped) saveCfg({lastImport:{at:new Date().toISOString(),added,skipped,file:file.name.slice(0,80)}});
+  say(`새 거래 <b>${added}건</b>을 추가했어요. 이미 장부에 있던 ${skipped}건은 건너뛰었어요.${bad?` 읽을 수 없는 줄 ${bad}개는 뺐어요.`:""} 확인이 필요한 거래는 거래내역 탭의 ‘확인 필요’에서 볼 수 있어요.`,"info",0);
+}
+
+/* ---------- views ---------- */
+const TABS=["overview","ledger","dues","forecast","settings"];
+let lastTab=null;
+function setTab(){ const h=(location.hash||"#overview").slice(1); const ok=TABS.includes(h)?h:"overview";
+  const TT={overview:"회비 장부",ledger:"거래내역",dues:"회비 납부",forecast:"잔액 예측",settings:"설정"}; const pt=$("#pageTitle"); if(pt) pt.textContent=TT[ok];
+  const pg=$("#pager"); if(pg) pg.innerHTML=(editable()?TABS:TABS.filter(t=>t!=="settings")).map(t=>`<i class="${t===ok?"on":""}"></i>`).join("");
+  document.querySelectorAll("#tabs a,#tabbar a").forEach(a=>{ if(a.getAttribute("href")==="#"+ok) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); }); return ok; }
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function killCharts(){charts.forEach(c=>c.destroy());charts=[]}
+
+function render(){ renderInner(); if(EN){ trTree(document.body); charts.forEach(trChart); document.documentElement.lang="en"; } }
+function renderInner(){
+  killCharts();
+  const tab=setTab();
+  if(lastTab&&lastTab!==tab){ const v=$("#view"); v.classList.remove("inR","inL"); void v.offsetWidth; v.classList.add(TABS.indexOf(tab)>TABS.indexOf(lastTab)?"inR":"inL"); window.scrollTo(0,0); }
+  lastTab=tab;
+  $("#importLabel").classList.toggle("hidden",!editable()||!db);
+  $("#exportBtn").classList.toggle("hidden",!downloads||!state.tx.size);
+  if(!state.txLoaded||!state.cfgLoaded){ return; }
+  const ab=$("#adminBtn"); const c0=cfg();
+  if(ab){ const show=viewOk()&&canWrite!==false&&!!db&&!!c0.pinHash; ab.classList.toggle("hidden",!show); const on=editable();
+    ab.classList.toggle("on",on); ab.innerHTML=on?'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 017.5-2"/></svg>잠그기':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>관리자'; }
+  document.querySelectorAll('a[href="#settings"]').forEach(a=>a.classList.toggle("hidden",!editable()));
+  $("#tabbar").style.gridTemplateColumns=`repeat(${editable()?5:4},1fr)`;
+  if(!viewOk()){ document.body.classList.add("locked"); gate(); return; }
+  document.body.classList.remove("locked");
+  if(tab==="settings"&&!editable()){ location.hash="overview"; return; }
+  const rs=rows();
+  const last=rs.find(r=>r.src!=="manual");
+  if(SNAP){ const d=new Date(SNAP.at); $("#asof").textContent=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} 기준 · 보기 전용`; } else if(STANDALONE){ $("#asof").innerHTML=versionLabel(); } else $("#asof").textContent=(rs.length?`거래 ${rs.length}건 · 마지막 거래 ${rs[0].t.slice(0,10).replace(/-/g,".")}`:"아직 거래가 없어요");
+  if(!rs.length&&tab!=="settings"){ $("#view").innerHTML=uploadCard(rs,false)||`<div class="card empty">아직 장부가 비어 있어요.</div>`; bindDrop(); return; }
+  ({overview,ledger,dues,forecast,settings})[tab](rs);
+}
+
+/* ---------- upload card ---------- */
+function cadence(rs){ // 매주 월요일(일요일 정기 운동 다음 날) 업로드
+  const c=cfg(); const d=today(); d.setHours(0,0,0,0);
+  const li=c.lastImport?.at?new Date(c.lastImport.at):null;
+  const lastToss=rs.find(r=>r.src==="toss"); const lastTx=lastToss?new Date(lastToss.t):null;
+  const ref=li||lastTx; const now=today(); const ago=ref?Math.floor((now-ref)/864e5):null;
+  let target=new Date(ref||d); target.setHours(0,0,0,0); target.setDate(target.getDate()+(((8-target.getDay())%7)||7));
+  if(target<d) target=d;
+  const y=target.getFullYear(),mo=target.getMonth(),day=target.getDate(); const lastDay=new Date(y,mo+1,0).getDate();
+  const dueNext=c.dueDay+1; let why="일요일 경기 다음 날이라 구장비·물값 정산을 바로 반영할 수 있어요";
+  if(day>=dueNext&&day<dueNext+7) why=`회비 마감(${c.dueDay}일)이 지난 주라 미납·연체도 같이 확인돼요`;
+  else if(day>lastDay-7) why="마지막 주라 단톡방에 월말 회계 공개(제11조)하기 전에 올려두면 좋아요";
+  const fmt=x=>`${x.getMonth()+1}월 ${x.getDate()}일`;
+  const wd=["일","월","화","수","목","금","토"];
+  return {target,why,fmt:x=>fmt(x),label:`${fmt(target)}(${wd[target.getDay()]})`,li,lastTx,ago,isToday:target.getTime()===d.getTime(),stale:ago!=null&&ago>8};
+}
+function uploadCard(rs,compact){
+  if(!editable()||!db) return "";
+  const k=cadence(rs);
+  const status=`<div class="cadence">
+    <span class="chip ${k.stale?"warn":"mute"}">${k.li?"마지막 업로드 ":"장부 마지막 거래 "}${k.li?`${k.fmt(k.li)} (${k.ago===0?"오늘":k.ago+"일 전"})`:k.lastTx?k.fmt(k.lastTx):"없음"}</span>
+    <span class="chip ${k.isToday||k.stale?"warn":"in"}">다음 업로드 ${k.isToday?"오늘":k.label}</span><span class="note">매주 월요일 추천 · ${k.why}</span></div>`;
+  if(compact) return `<div class="card" style="margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+    <div style="display:grid;gap:6px"><h2 style="margin:0">거래내역서 올리기</h2>${status}</div>
+    <div class="dropzone" data-drop tabindex="0" role="button" aria-label="토스 거래내역서 파일 올리기" style="padding:12px 18px;flex-direction:row">
+      <b style="font-size:14px">눌러서 파일 올리기</b></div></div>`;
+  return `<div class="card" style="margin-bottom:14px"><h2>토스 거래내역서 올리기</h2>
+    <div class="drop">
+      <div class="dropzone" data-drop tabindex="0" role="button" aria-label="토스 거래내역서 파일 올리기">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--accent)" aria-hidden="true"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+        <b>눌러서 엑셀 파일 고르기</b>
+        <span class="note">PC에서는 끌어다 놓아도 돼요 · .xlsx, .csv</span>
+        <span class="note">이미 장부에 있는 거래는 자동으로 건너뛰어요. 기간이 겹쳐도 괜찮아요.</span>
+      </div>
+      <div style="display:grid;gap:10px;align-content:start">
+        ${status}
+        <div><div class="note" style="font-weight:600;color:var(--ink);margin-bottom:4px">토스에서 받는 법</div>
+        <ol class="steps"><li>토스 앱 → 토스뱅크 → 오른쪽 위 설정</li><li>은행 증명서 발급하기 → 예금 → 거래내역 확인서</li><li>회비 통장 고르고, 기간은 최근 1~2주로 선택</li><li>이메일로 받은 엑셀 파일을 여기에 올리기</li></ol></div>
+        <div class="note"><b style="color:var(--ink)">메모 쓰는 법</b> · 보낼 때 메모에 <b>구장비, 물값, 장비, 회식, 대회, 벌금, 경조사</b>처럼 분류 이름을 쓰면 그대로 분류돼요.</div>
+        <p class="note" style="margin:0">2만원 입금은 메모가 없어도 회비로 들어가요. 올린 뒤에는 홈의 <b>${ON_GH?"링크에 반영":"파일 저장"}</b>을 눌러주세요.</p>
+      </div>
+    </div></div>`;
+}
+function bindDrop(){
+  document.querySelectorAll("[data-drop]").forEach(z=>{
+    const pick=()=>$("#importFile").click();
+    z.onclick=pick; z.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick()}};
+    z.ondragover=e=>{e.preventDefault();z.classList.add("over")};
+    z.ondragleave=()=>z.classList.remove("over");
+    z.ondrop=async e=>{e.preventDefault();z.classList.remove("over"); const f=e.dataTransfer.files[0]; if(f) await importFile(f);};
+  });
+}
+
+/* ---------- financial model: 주 단위 현금흐름 ----------
+   실제 돈이 움직이는 날짜대로 예상 거래를 만들고, 주(월~일)와 월로 묶어요.
+   · 회비: 매달 마감일(10일)이 있는 주에 들어와요. 이번 달은 아직 안 낸 사람 몫만.
+   · 구장비: 한 달 N번(기본 3번), 그달 일요일에 고르게 나눠서 1회 금액만큼 나가요. 이번 달은 이미 낸 횟수를 빼요.
+   · 물·기타 반복 지출: 경기 날마다 나눠서 나가요.
+   · 일회성(장비·대회·회식·경조사): 월평균을 매달 첫 주에 예비로 잡고, 예정 지출이 더 크면 그 금액으로.
+   · 기준 기간: 끝난 달 중 최근 3개월, 중간에 시작한 첫 달은 빼요.                                  */
+const ONE_OFF=new Set(["장비","대회/참가비","회식","경조사"]);
+const isRecurring=k=>OPEX.has(k)&&k!=="구장비"&&!ONE_OFF.has(k);
+const median=a=>{const b=[...a].sort((x,y)=>x-y);const n=b.length;return n?(n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2):0};
+function sundayList(m,after){ const [y,mo]=m.split("-").map(Number); const out=[]; const d=new Date(y,mo-1,1);
+  while(d.getMonth()===mo-1){ if(d.getDay()===0&&(!after||d>after)) out.push(new Date(d)); d.setDate(d.getDate()+1); } return out; }
+function sundays(m,from){ return sundayList(m,from?new Date(from.getTime()-1):null).length; }
+function monthStats(rs,m){ const out={fieldCnt:0,field:0,recurring:0,oneoff:{}};
+  for(const r of rs){ if(r._m!==m) continue;
+    if(r._cat==="구장비"){ out.field-=r.amt; if(r.amt<0) out.fieldCnt++; }
+    else if(isRecurring(r._cat)) out.recurring-=r.amt;
+    else if(ONE_OFF.has(r._cat)) out.oneoff[r._cat]=(out.oneoff[r._cat]||0)-r.amt; }
+  return out; }
+function fcInputs(rs){
+  const c=cfg(); const f=c.fc||{}; const cur=ym(today()); const ms=months(rs); const mx=duesMatrix(rs);
+  const firstDay=rs.length?Number(rs[rs.length-1].t.slice(8,10)):1; const firstM=rs.length?rs[rs.length-1]._m:cur;
+  const skipped=firstDay>1&&ms.filter(m=>m<cur).length>1?firstM:null;
+  const done=ms.filter(m=>m<cur&&m!==skipped).slice(-3);
+  const act=c.members.filter(m=>m.active!==false).length||1;
+  const st=done.map(m=>monthStats(rs,m));
+  const rateAuto=done.length?Math.round(done.reduce((s,m)=>s+paidCount(mx,m)/act,0)/done.length*100):100;
+  const cnt=st.reduce((s,x)=>s+x.fieldCnt,0), tot=st.reduce((s,x)=>s+x.field,0);
+  const gamesBank=done.length?Math.round(cnt/done.length*2)/2:0;
+  const fieldAuto=cnt?Math.round(tot/cnt/500)*500:0;
+  const otherAuto=Math.round(median(st.map(x=>x.recurring))/1000)*1000;
+  const allSt=ms.map(m=>monthStats(rs,m)); const oneTot=allSt.reduce((s,x)=>s+Object.values(x.oneoff).reduce((a,v)=>a+v,0),0);
+  const oneoffAuto=ms.length?Math.round(oneTot/ms.length/1000)*1000:0;
+  const auto={members:act,rate:rateAuto,games:3,gamesBank,field:fieldAuto,other:otherAuto,oneoff:oneoffAuto,oneTot,nMonths:ms.length,done,skipped};
+  return {members:f.members??act,rate:f.rate??rateAuto,games:f.games??3,field:f.field??fieldAuto,other:f.other??otherAuto,oneoff:f.oneoff??oneoffAuto,
+    reserve:f.reserve??200000,horizon:c.horizon||3,auto};
+}
+function balanceNow(rs){return cfg().startBalance+rs.reduce((s,r)=>s+r.amt,0)}
+const SCEN={base:{label:"기본",rate:0,opex:1},low:{label:"보수적",rate:-15,opex:1.15},high:{label:"낙관적",rate:10,opex:0.9}};
+const dkey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function fcEvents(rs,I,sc=SCEN.base,over={}){
+  const c=cfg(); const dues=over.dues??c.dues; const rate=Math.max(0,Math.min(100,(over.rate??I.rate)+sc.rate)); const payers=Math.round(I.members*rate/100);
+  const cur=ym(today()); const H=over.horizon||I.horizon; const mx=duesMatrix(rs);
+  const t0=new Date(today()); t0.setHours(23,59,59,0); const tmr=new Date(t0.getTime()+1000);
+  const ev=[]; const add=(d,kind,amt,m,note)=>{ if(amt) ev.push({d,kind,amt,m,note}); };
+  const planned=m=>c.planned.filter(p=>p.month===m).reduce((s,p)=>s+Number(p.amt||0),0);
+  for(let i=0;i<=H;i++){ const m=addM(cur,i); const [y,mo]=m.split("-").map(Number);
+    const st=i===0?monthStats(rs,m):null;
+    // 회비
+    const dueDate=new Date(y,mo-1,c.dueDay); 
+    if(i===0){ const rem=Math.max(0,payers-paidCount(mx,m)); add(dueDate>t0?dueDate:tmr,"inc",rem*dues,m,`회비 ${rem}명`); }
+    else add(dueDate,"inc",payers*dues,m,`회비 ${payers}명`);
+    // 구장비 + 경기날 물·기타
+    const suns=sundayList(m,i===0?t0:null);
+    const k=i===0?Math.max(0,Math.round(I.games-st.fieldCnt)):Math.round(I.games);
+    const picks=i===0?suns.slice(0,k):Array.from({length:Math.min(k,suns.length)},(_,j)=>suns[Math.min(suns.length-1,Math.round((j+0.5)*suns.length/k-0.5))]);
+    const fee=Math.round(I.field*sc.opex);
+    picks.forEach(d=>add(d,"field",fee,m,"구장비"));
+    const otherM=Math.round(I.other*sc.opex); const otherLeft=i===0?Math.max(0,otherM-st.recurring):otherM;
+    const per=Math.round(otherLeft/Math.max(1,picks.length));
+    if(picks.length) picks.forEach(d=>add(d,"other",per,m,"물·기타")); else add(i===0?tmr:new Date(y,mo-1,1),"other",otherLeft,m,"물·기타");
+    // 일회성
+    const oneM=Math.round(I.oneoff*sc.opex); const oneNow=i===0?Object.values(st.oneoff).reduce((a,v)=>a+v,0):0;
+    const one=Math.max(planned(m),Math.max(0,oneM-oneNow));
+    add(i===0?tmr:new Date(y,mo-1,1),"one",one,m,planned(m)>=Math.max(0,oneM-oneNow)&&planned(m)?"예정 지출":"일회성 예비");
+  }
+  return {ev:ev.sort((a,b)=>a.d-b.d),payers};
+}
+function project(rs,I,sc=SCEN.base,over={}){ // 월별
+  const {ev,payers}=fcEvents(rs,I,sc,over); const cur=ym(today()); const H=over.horizon||I.horizon; const mx=duesMatrix(rs);
+  let run=balanceNow(rs); const out=[];
+  for(let i=0;i<=H;i++){ const m=addM(cur,i); const e=ev.filter(x=>x.m===m);
+    const sum=k=>e.filter(x=>x.kind===k).reduce((s,x)=>s+x.amt,0);
+    const o={m,partial:i===0,payers:i===0?Math.max(0,payers-paidCount(mx,m)):payers,games:e.filter(x=>x.kind==="field").length,
+      income:sum("inc"),field:sum("field"),other:sum("other"),plan:sum("one")};
+    o.net=o.income-o.field-o.other-o.plan; run+=o.net; o.bal=run; out.push(o); }
+  return out;
+}
+function projectWeeks(rs,I,sc=SCEN.base,over={}){
+  const {ev}=fcEvents(rs,I,sc,over); const start=new Date(today()); start.setHours(0,0,0,0); start.setDate(start.getDate()+1);
+  const mon=new Date(start); mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
+  const last=ev.length?ev[ev.length-1].d:start; let run=balanceNow(rs); const out=[];
+  for(let w=new Date(mon); w<=last; w.setDate(w.getDate()+7)){ const end=new Date(w); end.setDate(end.getDate()+6); end.setHours(23,59,59);
+    const e=ev.filter(x=>x.d>=w&&x.d<=end); const inc=e.filter(x=>x.kind==="inc").reduce((s,x)=>s+x.amt,0); const outA=e.filter(x=>x.kind!=="inc").reduce((s,x)=>s+x.amt,0);
+    run+=inc-outA; out.push({start:new Date(w),end,inc,out:outA,net:inc-outA,bal:run,games:e.filter(x=>x.kind==="field").length,notes:e.map(x=>x.note)}); }
+  return out;
+}
+function actualWeeks(rs){ // 지금까지 주말(일요일) 잔액
+  if(!rs.length) return []; const c=cfg(); const asc=[...rs].reverse();
+  const first=new Date(asc[0].t.slice(0,10)+"T00:00:00"); const mon=new Date(first); mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
+  const now=today(); const out=[]; let i=0, run=c.startBalance;
+  for(let w=new Date(mon); w<=now; w.setDate(w.getDate()+7)){ const end=new Date(w); end.setDate(end.getDate()+6); end.setHours(23,59,59);
+    let inc=0,outA=0; while(i<asc.length&&new Date(asc[i].t)<=end){ const a=asc[i].amt; run+=a; if(a>0) inc+=a; else outA-=a; i++; }
+    out.push({start:new Date(w),end,bal:run,inc,out:outA}); }
+  return out; }
+function scenStats(out,reserve){ const min=out.reduce((a,o)=>o.bal<a.bal?o:a,out[0]); const neg=out.find(o=>o.bal<0); const below=out.find(o=>o.bal<reserve);
+  return {end:out.at(-1).bal,min,neg,below}; }
+function snapshotForecast(rs,B){ const c=cfg(); const cur=ym(today()); const nxt=B.find(o=>!o.partial); if(!nxt) return;
+  const log=c.fcLog||{}; const curLog=log[nxt.m]; const val={net:nxt.net,bal:nxt.bal,income:nxt.income,out:nxt.field+nxt.other+nxt.plan,at:cur};
+  if(curLog&&curLog.at!==cur) return;
+  if(curLog&&curLog.net===val.net&&curLog.bal===val.bal) return;
+  if(state.snapBusy) return; state.snapBusy=true; saveCfg({fcLog:Object.assign({},log,{[nxt.m]:val})}).finally(()=>{state.snapBusy=false}); }
+function variance(rs){ const c=cfg(); const cur=ym(today()); const agg=monthAgg(rs); const ms=months(rs); const log=c.fcLog||{};
+  let run=c.startBalance; const bal={}; for(const m of ms){run+=Object.values(agg[m]||{}).reduce((s,v)=>s+v,0); bal[m]=run;}
+  return Object.keys(log).filter(m=>m<cur&&bal[m]!=null).sort().map(m=>{const net=Object.values(agg[m]||{}).reduce((s,v)=>s+v,0); return {m,pNet:log[m].net,aNet:net,pBal:log[m].bal,aBal:bal[m]}}); }
+
+function gate(){
+  const logo=document.querySelector(".crest img")?.src||"";
+  $("#asof").textContent="팀원 전용";
+  $("#view").innerHTML=`<div class="gate"><div class="card">
+    <img src="${logo}" alt="하나해 FC 엠블럼">
+    <h2 style="margin:4px 0 0;font-size:20px">하나해 FC 회비 장부</h2>
+    <p class="note" style="margin:0">팀원 비밀번호를 입력하면 볼 수 있어요. 비밀번호는 공지방에서 확인하세요.</p>
+    <form id="gateForm"><input type="password" id="gatePw" aria-label="팀원 비밀번호" placeholder="비밀번호" autocomplete="current-password" required>
+    <p class="note neg" id="gateErr" style="margin:0;min-height:1.2em"></p><button class="primary" type="submit">열기</button></form></div></div>`;
+  $("#gateForm").onsubmit=async e=>{ e.preventDefault(); const h=await pwHash($("#gatePw").value); const c=cfg();
+    if(h===c.viewHash){ setViewKey(h); render(); }
+    else if(c.pinHash&&h===c.pinHash){ setAdminKey(h); render(); }
+    else { $("#gateErr").textContent="비밀번호가 맞지 않아요."; $("#gatePw").select(); } };
+}
+function overview(rs){
+  const c=cfg(); const cur=ym(today()); const ms=months(rs); const agg=monthAgg(rs); const mx=duesMatrix(rs); const I=fcInputs(rs);
+  const bal=balanceNow(rs);
+  const tossLast=rs.find(r=>r.src==="toss"&&r.bal!=null);
+  const tossSum=c.startBalance+rs.filter(r=>r.src==="toss").reduce((s,r)=>s+r.amt,0);
+  const recon=tossLast?(tossLast.bal===tossSum):null;
+  const curNet=Object.values(agg[cur]||{}).reduce((s,v)=>s+v,0);
+  const act=c.members.filter(m=>m.active!==false); const pc=paidCount(mx,cur); const pct=act.length?Math.round(pc/act.length*100):0;
+  const unpaid=act.filter(m=>paidAmt(mx,m.name,cur)<req(m.name,cur)).map(m=>m.name);
+  const before=today().getDate()<=c.dueDay;
+  const WF=projectWeeks(rs,I,SCEN.base,{horizon:3}).slice(0,13); const W4=WF.slice(0,4); const WA=actualWeeks(rs);
+  const base=project(rs,I,SCEN.base,{horizon:6}); const negM=base.filter(o=>!o.partial&&o.net<0).map(o=>mLabel(o.m).replace(/^\d+년 /,""));
+  const checks=rs.filter(r=>r._check).length;
+  // this month's spending (fallback: last month if nothing yet)
+  let sm=cur; if(!opexOf(agg[cur])) sm=addM(cur,-1);
+  const spend=Object.entries(agg[sm]||{}).filter(([k,v])=>OPEX.has(k)&&v<0).map(([k,v])=>[k,-v]).sort((a,b)=>b[1]-a[1]);
+  const spendTot=spend.reduce((s,[,v])=>s+v,0); const spendMax=spend[0]?.[1]||1;
+  let run=c.startBalance; const balAt={}; for(const m of ms){run+=Object.values(agg[m]||{}).reduce((s,v)=>s+v,0); balAt[m]=run;}
+  $("#view").innerHTML=`
+  <div class="dash">
+    <div class="card hero">
+      <div class="label">지금 통장에 있는 돈</div>
+      <div class="big">${won(bal)}</div>
+      <div class="chips">
+        ${recon===null?"":recon?'<span class="chip in">토스 잔액과 일치</span>':`<span class="chip bad">토스 잔액과 ${won(tossLast.bal-tossSum)} 차이</span>`}
+        <span class="chip ${curNet<0?"out":"in"}">${mLabel(cur).replace(/^\d+년 /,"")} ${wonS(curNet)}</span>
+      </div>
+      ${!editable()?"":`<div class="quick">
+        <button type="button" id="qUp"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>내역서 올리기</button>
+        <button type="button" id="qShare"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M12 3v12m0-12l-4 4m4-4l4 4"/></svg>파일 저장</button>
+        <a href="#ledger" id="qCash"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>현금 입력</a>
+      </div>`}
+    </div>
+    <div class="card">
+      <div class="rowhead"><h2>${mLabel(cur).replace(/^\d+년 /,"")} 회비</h2><span class="num strong">${pc}<span class="muted"> / ${act.length}명</span></span></div>
+      <div class="progress" role="img" aria-label="회비 납부 ${pct}%"><div style="width:${pct}%"></div></div>
+      ${unpaid.length?`<div class="chips" style="margin-top:12px"><span class="muted small">${before?`아직 안 낸 사람 (마감 ${c.dueDay}일)`:"미납"}</span>${unpaid.map(n=>`<span class="chip ${before?"warn":"bad"}">${esc(n)}</span>`).join("")}</div>`:'<p class="small ok" style="margin:12px 0 0">모두 냈어요</p>'}
+    </div>
+    <div class="card span2">
+      <div class="rowhead"><h2>주별 잔액</h2><span class="small muted">점선은 앞으로 13주 예상</span></div>
+      <div class="chartbox" style="height:210px"><canvas id="cMain" aria-label="월말 잔액과 6개월 예상 차트"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="rowhead"><h2>${mLabel(sm).replace(/^\d+년 /,"")} 지출</h2><span class="num strong">${won(spendTot)}</span></div>
+      ${spend.length?`<div class="bars">${spend.map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${(v/spendMax*100).toFixed(1)}%"></div></div><span class="num">${won(v)}</span></div>`).join("")}</div>`:'<p class="small muted">아직 지출이 없어요.</p>'}
+    </div>
+    <div class="card">
+      <div class="rowhead"><h2>앞으로 4주</h2><a href="#forecast" class="small">예측 보기 →</a></div>
+      <table><tbody>${W4.map(w=>`<tr><td class="num">${w.start.getMonth()+1}/${w.start.getDate()}~${w.end.getMonth()+1}/${w.end.getDate()}<div class="memo">${esc([...new Set(w.notes)].join(" · ")||"—")}</div></td><td class="r num ${w.net<0?"neg":"ok"}">${w.net?wonS(w.net):"–"}</td><td class="r num"><b>${won(w.bal)}</b></td></tr>`).join("")}</tbody></table>
+    </div>
+    ${checks&&editable()?`<a class="card notice span2" href="#ledger" id="gocheck"><span><b>${checks}건</b> 확인이 필요해요</span><span class="small muted">메모 없는 거래를 추정해서 분류했어요. 눌러서 확인하기 →</span></a>`:""}
+    <div class="span2">${uploadCard(rs,true)}</div>
+  </div>`;
+  const g=$("#gocheck"); if(g) g.addEventListener("click",()=>{state.filter="check"});
+  bindDrop();
+  const qu=$("#qUp"); if(qu) qu.onclick=()=>$("#importFile").click();
+  const qc=$("#qCash"); if(qc) qc.onclick=()=>{state.openCash=true};
+  const qs=$("#qShare"); if(qs){ if(ON_GH){ qs.lastChild.textContent="링크에 반영"; qs.onclick=()=>ghPublish(qs); } else qs.onclick=shareFile; }
+  const lab=d=>`${d.getMonth()+1}/${d.getDate()}`;
+  const labels=[...WA.map(w=>lab(w.end>today()?today():w.end)),...WF.map(w=>lab(w.end))];
+  const nA=WA.length; const pad=n=>Array(n).fill(null);
+  const actual=WA.map(w=>w.bal); const fc=[...pad(nA-1),actual[nA-1],...WF.map(w=>w.bal)];
+  const op=chartOpts(); op.plugins.legend.display=false;
+  op.scales.x.ticks.maxRotation=0; op.scales.x.ticks.autoSkip=true; op.scales.x.ticks.maxTicksLimit=7;
+  charts.push(new Chart($("#cMain"),{type:"line",data:{labels,datasets:[
+    {label:"잔액",data:[...actual,...pad(WF.length)],borderColor:css("--accent"),backgroundColor:css("--accent-soft"),fill:true,pointRadius:2,tension:0,borderWidth:2.5},
+    {label:"예상 잔액",data:fc,borderColor:css("--accent"),borderDash:[5,5],pointRadius:2,tension:0,borderWidth:2,fill:false}]},options:op}));
+}
+function chartOpts(){ const ink=css("--muted"),line=css("--line"); return {responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+  plugins:{legend:{labels:{color:ink,boxWidth:12,font:{family:"IBM Plex Sans KR"}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${won(c.parsed.y)}`}}},
+  scales:{x:{ticks:{color:ink},grid:{display:false}},y:{ticks:{color:ink,callback:v=>EN?(v<0?"−₩":"₩")+Math.abs(v/1000)+"K":(v/10000)+"만"},grid:{color:line}}}}; }
+
+function allCats(){ const set=new Set(CATS_ALL.filter(c=>c!=="미분류")); for(const t of state.tx.values()) if(t.cat) set.add(t.cat); return [...set]; }
+function catSelect(r){
+  if(!editable()) return `<span class="chip ${CATS_IN.includes(r._cat)?"in":r._cat==="취소/상쇄"?"mute":"out"}">${esc(r._cat)}</span>`;
+  return `<select class="cat" data-id="${esc(r.id)}" data-k="cat" aria-label="분류">
+    <option value="">${r._auto?`메모대로: ${esc(r._cat)}`:"메모대로 되돌리기"}</option>
+    ${allCats().map(c=>`<option ${!r._auto&&r._cat===c?"selected":""}>${esc(c)}</option>`).join("")}
+    <option value="__custom">직접 입력…</option></select>`;
+}
+function ledger(rs){
+  const c=cfg(); const ms=[...new Set(rs.map(r=>r._m))];
+  let list=rs; if(state.filter==="check") list=list.filter(r=>r._check); else if(state.filter!=="all") list=list.filter(r=>r._cat===state.filter);
+  if(state.month!=="all") list=list.filter(r=>r._m===state.month);
+  const sum=list.reduce((s,r)=>s+r.amt,0);
+  const nCheck=rs.filter(r=>r._check).length;
+  $("#view").innerHTML=`${uploadCard(rs,false)}
+  ${!editable()?"":`<details class="card" style="margin-bottom:14px" ${state.openCash?"open":""}><summary style="cursor:pointer"><h2 style="display:inline">현금 거래 직접 입력</h2> <span class="note">눌러서 열기</span></summary><div style="margin-top:12px">
+    <form class="form" id="addForm">
+      <label class="f" for="fDate">날짜<input type="date" id="fDate" required value="${new Date(Date.now()+9*36e5).toISOString().slice(0,10)}"></label>
+      <label class="f" for="fName">내용<input id="fName" required placeholder="예: 현금 회비 김OO"></label>
+      <label class="f" for="fDir">구분<select id="fDir"><option value="-1">지출</option><option value="1">수입</option></select></label>
+      <label class="f" for="fAmt">금액<input type="number" id="fAmt" required min="1" step="1" placeholder="20000"></label>
+      <label class="f" for="fCat">분류<select id="fCat"><option value="">자동</option>${CATS_ALL.filter(x=>x!=="미분류").map(x=>`<option>${x}</option>`).join("")}</select></label>
+      <label class="f" for="fMemo">메모<input id="fMemo" placeholder="선택"></label>
+      <button class="primary" type="submit">추가</button>
+    </form><p class="note" style="margin:8px 0 0">통장을 거치지 않은 현금 거래를 적을 때 쓰세요. 통장 거래는 토스 엑셀로 불러오면 자동으로 들어와요.</p></div></details>`}
+  <div class="toolbar">
+    <label class="f" for="flt">보기<select id="flt">
+      <option value="all">전체</option><option value="check" ${state.filter==="check"?"selected":""}>확인 필요 (${nCheck})</option>
+      ${CATS_ALL.map(x=>`<option ${state.filter===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label class="f" for="fm">월<select id="fm"><option value="all">전체</option>${ms.map(m=>`<option value="${m}" ${state.month===m?"selected":""}>${mLabel(m)}</option>`).join("")}</select></label>
+    <span class="note" style="margin-left:auto">${list.length}건 · 합계 <b class="num">${wonS(sum)}</b></span>
+  </div>
+  <div class="card" style="padding:0"><div class="scroll"><table class="list">
+    <thead><tr><th>날짜</th><th>내용</th><th class="r">금액</th><th>분류</th><th>회비 월</th><th class="r">잔액</th><th></th></tr></thead>
+    <tbody>${list.map(r=>`<tr>
+      <td class="num c-date">${r.t.slice(5,10).replace("-",".")} <span class="memo">${r.t.slice(11,16)}</span></td>
+      <td class="c-name">${esc(r.name)}${r.memo?`<div class="memo">${esc(r.memo)}</div>`:""}${r.src==="manual"?' <span class="chip mute">직접 입력</span>':""}</td>
+      <td class="r num c-amt ${r.amt<0?"neg":"ok"}">${wonS(r.amt)}</td>
+      <td class="c-cat">${catSelect(r)}${r._guess?` <span class="chip warn">추정 · ${esc(r._guess.conf||"")}</span>${!editable()?"":` <button class="small" data-ok="${esc(r.id)}" type="button">맞아요</button>`}<div class="memo">${esc(r._guess.why||"")}</div>`:r._check?' <span class="chip warn">확인</span>':""}</td>
+      <td class="c-month">${r._cat==="회비"?monthSelect(r):""}</td>
+      <td class="r num memo c-bal">${r.bal!=null?won(r.bal):""}</td>
+      <td class="c-del">${r.src==="manual"&&editable()?`<button class="small danger" data-del="${esc(r.id)}" type="button">삭제</button>`:""}</td></tr>`).join("")||`<tr><td colspan="7" class="empty">해당하는 거래가 없어요.</td></tr>`}</tbody></table></div></div>`;
+  bindDrop();
+  $("#flt").onchange=e=>{state.filter=e.target.value;render()};
+  $("#fm").onchange=e=>{state.month=e.target.value;render()};
+  const f=$("#addForm"); if(f) f.onsubmit=async e=>{e.preventDefault();
+    const amt=Math.abs(Number($("#fAmt").value))*Number($("#fDir").value); const date=$("#fDate").value;
+    const now=new Date(); const iso=`${date}T${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+    const d={t:iso,name:$("#fName").value.trim(),type:"직접 입력",amt,src:"manual"}; const cat=$("#fCat").value; if(cat)d.cat=cat; const memo=$("#fMemo").value.trim(); if(memo)d.memo=memo;
+    try{ await saveTx("m"+Date.now().toString(36),d); say("추가했어요."); }catch(_){}
+  };
+  bindRowControls();
+}
+function monthSelect(r){ const dm=dueMonth(r); if(!editable()) return `<span class="chip mute">${esc(mLabel(dm))}</span>`; const opts=[-2,-1,0,1,2].map(n=>addM(ym(dt(r)),n)); if(!opts.includes(dm))opts.push(dm);
+  return `<select class="cat" data-id="${esc(r.id)}" data-k="month" ${!editable()?"disabled":""} aria-label="회비 월">${opts.map(m=>`<option value="${m}" ${m===dm?"selected":""}>${mLabel(m)}</option>`).join("")}</select>`; }
+function bindRowControls(){
+  document.querySelectorAll("select[data-id]").forEach(s=>s.onchange=async e=>{const id=s.dataset.id,k=s.dataset.k;
+    if(e.target.value==="__custom"){ const box=document.createElement("form"); box.className="form"; box.style.marginTop="6px";
+      box.innerHTML='<input aria-label="새 분류 이름" placeholder="예: 심판비" maxlength="20" required style="width:140px"><button class="small primary" type="submit">저장</button><button class="small" type="button">취소</button>';
+      s.after(box); s.disabled=true; const inp=box.querySelector("input"); inp.focus();
+      box.querySelector("button[type=button]").onclick=()=>{box.remove(); s.disabled=false; s.value="";};
+      box.onsubmit=async ev=>{ev.preventDefault(); const v=inp.value.trim(); if(!v)return; try{await patchTx(id,{cat:v});}catch(_){} };
+      return; }
+    try{await patchTx(id,{[k]:e.target.value});}catch(_){}});
+  document.querySelectorAll("button[data-ok]").forEach(b=>b.onclick=async()=>{const t=state.tx.get(b.dataset.ok); if(!t?.guess)return; const next=Object.assign({},t,{cat:t.guess.c}); delete next.guess; delete next.id; try{await saveTx(b.dataset.ok,next)}catch(_){}});
+  document.querySelectorAll("button[data-del]").forEach(b=>b.onclick=async()=>{ if(b.dataset.armed){ try{await db.doc("tx/"+b.dataset.del).delete();}catch(e){writeErr(e)} } else { b.dataset.armed="1"; b.textContent="정말 삭제"; setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent="삭제"}},3000);} });
+}
+
+function dues(rs){
+  const c=cfg(); const ms=months(rs); const cur=ym(today()); const mx=duesMatrix(rs); const L=lateInfo(rs);
+  const mem=c.members; const ro=!editable();
+  const rowsH=mem.map(m=>{ const st=m.active===false?0:streak(mx,m.name,rs);
+    const cells=ms.map(k=>{ const v=paidAmt(mx,m.name,k); const since=m.since||c.startMonth; const need=req(m.name,k); const adj=need!==c.dues;
+      if(k<since||(m.active===false&&!v)) return `<td><span class="cell na">–</span></td>`;
+      let cls,txt;
+      if(v>=need){cls="paid";txt=adj?"조정 납부":"납부"}
+      else if(v>0){cls="part";txt=EN?"₩"+(v/1000)+"K":(v/10000).toFixed(1).replace(".0","")+"만"}
+      else if(k===cur&&today().getDate()<=c.dueDay){cls="part";txt="아직"}
+      else {cls="miss";txt="미납"}
+      if(adj&&v<need) txt="조정 "+txt;
+      const tip=`${won(v)} 납부 · 낼 돈 ${won(need)}${adj?" (불참 조정)":""}`;
+      return ro?`<td><span class="cell ${cls}" title="${tip}">${txt}</span></td>`:
+        `<td><button class="cell ${cls}" style="border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:600" data-adj="${esc(m.name+"|"+k)}" title="${tip}. 누르면 불참 조정(${won(c.adjustAmt)}) 켜고 끄기" type="button">${txt}</button></td>`; }).join("");
+    return `<tr><td><b>${esc(m.name)}</b>${m.active===false?' <span class="chip mute">휴면</span>':""}</td>${cells}<td>${m.active===false?'<span class="chip mute">휴면</span>':st>=3?`<span class="chip bad">${st}개월 · 징계 검토</span>`:st?`<span class="chip warn">${st}개월</span>`:'<span class="chip in">없음</span>'}</td></tr>`; }).join("");
+  const lateByName={}; for(const x of L.list){(lateByName[x.name]??=[]).push(x)}
+  const lateRows=Object.entries(lateByName).map(([n,xs])=>{const owed=xs.reduce((s,x)=>s+x.fee,0); const paid=L.paidFees[n]||0;
+    return `<tr><td><b>${esc(n)}</b></td><td>${xs.map(x=>`${mLabel(x.m)} ${x.paid?`${x.paidAt.slice(5,10).replace("-","/")} 납부`:"미납"} · ${x.weeks}주`).join("<br>")}</td><td class="r num">${won(owed)}</td></tr>`}).join("");
+  $("#view").innerHTML=`
+  <div class="card"><h2>회원별 회비 납부 현황</h2>
+    <p class="note" style="margin-top:-4px">회칙 제4조에 따라 매월 ${c.dueDay}일까지 ${won(c.dues)}이에요. 25일 이후에 낸 돈은 다음 달 회비로 세요.${ro?"":` 칸을 누르면 그달을 <b>불참 조정(${won(c.adjustAmt)}, 제5조)</b>으로 바꾸거나 되돌릴 수 있어요.`} 3개월 넘게 계속 미납이면 ‘징계 검토’로 표시돼요(제9조).</p>
+    <div class="scroll"><table class="dues"><thead><tr><th>이름</th>${ms.map(k=>`<th>${mLabel(k)}</th>`).join("")}<th>연속 미납</th></tr></thead><tbody>${rowsH}</tbody></table></div></div>
+  <div class="card" style="margin-top:14px"><h2>회칙상 연체료 (${mLabel(c.lateFrom)}분부터)</h2>
+    <p class="note" style="margin-top:-4px">${c.dueDay}일이 지나면 1주마다 ${won(c.lateFee)}이에요(제4조). 회비보다 더 낸 금액과 ‘연체료/벌금’으로 분류한 입금은 연체료나 벌금을 낸 것으로 세요.</p>
+    ${lateRows?`<table><thead><tr><th>이름</th><th>연체</th><th class="r">회칙상 연체료</th></tr></thead><tbody>${lateRows}</tbody></table>`:'<p class="note">아직 연체된 회비가 없어요.</p>'}
+    ${Object.keys(L.paidFees).length?`<p class="note" style="margin-top:10px">연체료·벌금으로 들어온 돈: ${Object.entries(L.paidFees).map(([n,v])=>`${esc(n)} ${won(v)}`).join(", ")}</p>`:""}</div>
+  ${mx.unknown.length?`<div class="card" style="margin-top:14px"><h2>명단에 없는 이름으로 들어온 회비 ${mx.unknown.length}건</h2>
+    <p class="note" style="margin-top:-4px">적요가 이름이 아닌 입금(예: ‘10월회비’)은 누가 냈는지 골라주세요. 그 회원의 납부로 들어가요.</p>
+    <table><tbody>${mx.unknown.map(r=>`<tr><td class="num">${r.t.slice(0,10)}</td><td>${esc(r.name)}</td><td class="r num ok">${won(r.amt)}</td>
+      <td><select class="cat" data-id="${esc(r.id)}" data-k="payer" ${ro?"disabled":""} aria-label="낸 사람"><option value="">낸 사람 고르기</option>${mem.map(m=>`<option>${esc(m.name)}</option>`).join("")}</select></td>
+      <td>${ro||!isPersonName(baseName(r.name))?"":`<button class="small" data-addmem="${esc(baseName(r.name))}" type="button">‘${esc(baseName(r.name))}’ 회원으로 추가</button>`}</td></tr>`).join("")}</tbody></table></div>`:""}
+  <div class="card" style="margin-top:14px"><h2>회원 명단</h2>
+    <div class="toolbar">${ro?"":`<form class="form" id="memForm"><label class="f" for="mName">이름<input id="mName" required></label><label class="f" for="mSince">가입 월<input type="month" id="mSince" value="${cur}"></label><button class="primary" type="submit">추가</button></form>`}</div>
+    <div class="memlist">${mem.map((m,i)=>`<div class="memrow"><span class="memname">${esc(m.name)}</span><span class="chip ${m.active===false?"mute":"in"}">${m.active===false?"휴면":"활동"}</span>
+      ${ro?"":`<span class="memact"><button class="small" data-toggle="${i}" type="button">${m.active===false?"활동으로":"휴면으로"}</button><button class="small danger" data-rm="${i}" type="button">빼기</button></span>`}</div>`).join("")}</div>
+    <p class="note">휴면 회원은 미납으로 세지 않아요. 가입 월은 첫 회비를 낸 달로 두면 돼요(제3조).</p></div>`;
+  bindRowControls();
+  document.querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>{const k=b.dataset.adj; const a=Object.assign({},cfg().adjust||{}); if(a[k]) delete a[k]; else a[k]=true; saveCfg({adjust:a})});
+  document.querySelectorAll("[data-addmem]").forEach(b=>b.onclick=()=>{const n=b.dataset.addmem; if(cfg().members.some(m=>m.name===n))return; saveCfg({members:[...cfg().members,{name:n,active:true,since:cfg().startMonth}]})});
+  document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const m=cfg().members.map(x=>Object.assign({},x)); const i=+b.dataset.toggle; m[i].active=m[i].active===false; saveCfg({members:m})});
+  document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ if(!b.dataset.armed){b.dataset.armed="1";b.textContent="정말 빼기";return} const m=cfg().members.filter((_,i)=>i!==+b.dataset.rm); saveCfg({members:m})});
+  const mf=$("#memForm"); if(mf) mf.onsubmit=e=>{e.preventDefault(); const n=$("#mName").value.trim(); if(!n||cfg().members.some(m=>m.name===n))return; saveCfg({members:[...cfg().members,{name:n,active:true,since:$("#mSince").value||cur}]})};
+}
+
+function report(rs){
+  const c=cfg(); const ms=months(rs); const cur=ym(today());
+  if(!state.repMonth||!ms.includes(state.repMonth)) state.repMonth=cur;
+  const m=state.repMonth; const agg=monthAgg(rs); const a=agg[m]||{}; const mx=duesMatrix(rs);
+  let run=c.startBalance; for(const k of ms){ run+=Object.values(agg[k]||{}).reduce((s,v)=>s+v,0); if(k===m) break; }
+  const [y,mo]=m.split("-"); const L=`${Number(mo)}월`;
+  const inc=[["회비",a["회비"]],["연체료·벌금",a["연체료/벌금"]],["기타 수입",(a["기타수입"]||0)+(a["이자"]||0)]].filter(([,v])=>v);
+  const out=Object.keys(a).filter(k=>OPEX.has(k)).map(k=>[k,-(a[k]||0)]).filter(([,v])=>v>0).sort((x,y)=>y[1]-x[1]);
+  const uni=a["유니폼"]||0;
+  const tin=inc.reduce((s,[,v])=>s+v,0), tout=out.reduce((s,[,v])=>s+v,0);
+  const pc=paidCount(mx,m); const act=c.members.filter(x=>x.active!==false);
+  const unpaid=act.filter(x=>paidAmt(mx,x.name,m)<req(x.name,m)&&m>=(x.since||c.startMonth)).map(x=>x.name);
+  const adj=act.filter(x=>req(x.name,m)!==c.dues).map(x=>x.name);
+  const guesses=rs.filter(r=>r._m===m&&r._guess).length;
+  const f=n=>Math.round(n).toLocaleString("ko-KR")+"원";
+  const lines=[`[하나해 FC ${L} 회계 보고]`,`(${y}.${mo}.01 ~ ${m===cur?new Date().toLocaleDateString("ko-KR"):y+"."+mo+" 말일"})`,"",
+    `■ 수입 ${f(tin)}`,...inc.map(([k,v])=>`  · ${k} ${f(v)}${k==="회비"?` (${pc}명)`:""}`),"",
+    `■ 지출 ${f(tout)}`,...(out.length?out.map(([k,v])=>`  · ${k} ${f(v)}`):["  · 없음"]),
+    ...(uni?["",`■ 유니폼 (걷은 돈과 낸 돈 차이) ${uni>0?"+":"−"}${f(Math.abs(uni))}`]:[]),"",
+    `■ ${m===cur?"현재":"월말"} 잔액 ${f(run)}`,"",
+    `■ ${L} 회비 미납 ${unpaid.length}명${unpaid.length?": "+unpaid.join(", "):""}`,
+    ...(adj.length?[`■ 불참 조정(${f(c.adjustAmt)}): ${adj.join(", ")}`]:[]),
+    ...(guesses?["",`※ 메모 없는 거래 ${guesses}건은 추정해서 분류했어요. 틀린 게 있으면 총무에게 알려주세요.`]:[])];
+  const text=lines.join("\n");
+  $("#view").innerHTML=`
+  <div class="card"><h2>단톡방에 올릴 월말 회계 보고</h2>
+    <p class="note" style="margin-top:-4px">회칙 제11조: 총무는 매월 마지막 주에 수입과 지출을 단체 채팅방에 공개해요. 아래 글을 복사해서 그대로 올리면 돼요.</p>
+    <div class="toolbar"><label class="f" for="rm">월<select id="rm">${[...ms].reverse().map(k=>`<option value="${k}" ${k===m?"selected":""}>${mLabel(k)}</option>`).join("")}</select></label>
+      <button class="primary" id="copyRep" type="button">복사하기</button><span class="note" id="copyMsg"></span></div>
+    <textarea id="repText" readonly style="width:100%;min-height:360px;font:inherit;font-size:13px;line-height:1.6;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)">${esc(text)}</textarea>
+    ${guesses?`<p class="note">이 달에 추정 분류가 ${guesses}건 있어요. 올리기 전에 <a href="#ledger">거래내역</a>에서 확인하면 더 정확해요.</p>`:""}</div>`;
+  $("#rm").onchange=e=>{state.repMonth=e.target.value;render()};
+  $("#copyRep").onclick=async()=>{ try{ await navigator.clipboard.writeText(text); $("#copyMsg").textContent="복사했어요."; }catch(_){ const t=$("#repText"); t.focus(); t.select(); $("#copyMsg").textContent="글이 선택됐어요. Ctrl+C(⌘C)로 복사해주세요."; } };
+}
+
+function forecast(rs){
+  const c=cfg(); const I=fcInputs(rs); const dis=!editable()?"disabled":""; const cur=ym(today());
+  const res={}; for(const k in SCEN){ res[k]=project(rs,I,SCEN[k]); res[k].st=scenStats(res[k],I.reserve); }
+  const B=res.base, st=B.st; const full=B.filter(o=>!o.partial);
+  const WK={}; for(const k in SCEN) WK[k]=projectWeeks(rs,I,SCEN[k]); const W=WK.base;
+  for(const k in SCEN){ res[k].st.wmin=WK[k].reduce((a,o)=>o.bal<a.bal?o:a,WK[k][0]); }
+  if(editable()) snapshotForecast(rs,B);
+  const avgNet=Math.round(full.reduce((s,o)=>s+o.net,0)/full.length);
+  const opexAvg=Math.round(full.reduce((s,o)=>s+o.field+o.other+o.plan,0)/full.length);
+  const payersAvg=Math.round(I.members*I.rate/100);
+  const breakeven=payersAvg?Math.ceil(opexAvg/payersAvg/1000)*1000:0;
+  const rateBE=I.members&&c.dues?Math.ceil(opexAvg/(I.members*c.dues)*100):0;
+  const short=m=>mLabel(m).replace(/^\d+년 /,"");
+  const msg=st.neg?`기본 시나리오로도 <b>${mLabel(st.neg.m)}</b>에 잔액이 마이너스가 돼요.`:
+    res.low.st.neg?`기본 시나리오는 괜찮지만, 보수적으로 보면 <b>${mLabel(res.low.st.neg.m)}</b>에 잔액이 바닥나요.`:
+    `매달 평균 <b>${wonS(avgNet)}</b> 흐름이에요. ${I.horizon}개월 뒤 예상 잔액은 <b>${won(st.end)}</b>, 보수적으로 봐도 ${won(res.low.st.end)}이에요.`;
+  const sensDues=[15000,20000,25000]; const sensRate=[60,75,90,100];
+  const sens=sensRate.map(r=>sensDues.map(d=>project(rs,I,SCEN.base,{dues:d,rate:r}).at(-1).bal));
+  const V=variance(rs);
+  const basis=`${I.auto.done.map(short).join("·")} 실적${I.auto.skipped?` (${short(I.auto.skipped)}은 중간에 시작한 달이라 뺐어요)`:""}`;
+  const inp=(id,label,val,step,note,suffix="")=>`<label class="f" for="${id}">${label}<span style="display:flex;gap:6px;align-items:center"><input type="number" id="${id}" step="${step}" value="${val}" ${dis}>${suffix}</span><span class="note">${note}</span></label>`;
+  $("#view").innerHTML=`
+  <div class="banner ${st.neg?"bad":res.low.st.neg?"warn":"info"}">${msg} 지금 지출을 회비만으로 맞추려면 1인당 <b>${won(breakeven)}</b>, 또는 징수율 <b>${rateBE}%</b> 이상이면 돼요.</div>
+  <div class="card" style="margin-bottom:14px"><h2>주별 잔액 전망</h2><div class="chartbox" style="height:280px"><canvas id="cFc" aria-label="주별 잔액 전망 차트"></canvas></div>
+      <p class="note">오늘 잔액 ${won(balanceNow(rs))}에서 출발해요. 10일 전후 회비가 들어오면 올라가고, 시합하는 일요일마다 구장비와 물값이 나가서 내려가요. 매달 첫 주에는 일회성 지출 예비가 빠져요.</p></div>
+  <div class="grid kpis">
+    ${["low","base","high"].map(k=>{const r=res[k],s=r.st;return `<div class="card kpi" style="${k==="base"?"border-color:var(--accent)":""}">
+      <div class="label">${SCEN[k].label}${k==="low"?" · 징수율 −15%p, 지출 +15%":k==="high"?" · 징수율 +10%p, 지출 −10%":" · 최근 실적 그대로"}</div>
+      <div class="value ${s.end<0?"neg":""}">${won(s.end)}</div>
+      <div class="sub">${I.horizon}개월 뒤 · 가장 낮을 때 ${won(s.wmin.bal)} (${s.wmin.end.getMonth()+1}/${s.wmin.end.getDate()} 주)<br>${s.wmin.bal<I.reserve?`<span class="neg">예비비 ${won(I.reserve)} 아래로 내려가는 주가 있어요</span>`:`예비비 ${won(I.reserve)} 이상 유지`}</div></div>`}).join("")}
+    <div class="card kpi"><div class="label">손익분기 회비</div><div class="value">${won(breakeven)}</div><div class="sub">한 달 지출 ${won(opexAvg)} ÷ 내는 사람 ${payersAvg}명</div></div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h2>가정</h2><p class="note" style="margin-top:-4px">기준: ${basis}</p><div class="grid" style="gap:12px">
+      ${inp("aMem","활동 회원 수",I.members,1,`명단 기준 ${I.auto.members}명`,"명")}
+      ${inp("aRate","회비 징수율",I.rate,5,`기준 기간 평균 ${I.auto.rate}%`,"%")}
+      ${inp("aDues","월 회비 (1인)",c.dues,1000,"회칙 제4조","원")}
+      ${inp("aGames","한 달 시합(구장비) 횟수",I.games,0.5,`회비통장에서 나가는 횟수. 통장 기록 평균은 ${I.auto.gamesBank}회예요(개인 돈으로 낸 건 빼요)`,"회")}
+      ${inp("aField","1회 구장비",I.field,500,`기준 기간 결제 평균 ${won(I.auto.field)}`,"원")}
+      ${inp("aOther","반복 지출 (물·기타, 월)",I.other,1000,`기준 기간 중앙값 ${won(I.auto.other)}. 장비·유니폼·대회·회식·경조사는 일회성이라 빼요`,"원")}
+      ${inp("aOne","일회성 지출 (월 평균)",I.oneoff,1000,`지금까지 장비·대회·회식·경조사 ${won(I.auto.oneTot)} ÷ ${I.auto.nMonths}개월. 예정 지출을 넣은 달은 둘 중 큰 금액을 써요`,"원")}
+      ${inp("aRes","목표 예비비",I.reserve,10000,"경조사(제11조)나 큰 지출 대비","원")}
+      <label class="f" for="aHor">기간<select id="aHor" ${dis}>${[3,6].map(n=>`<option value="${n}" ${I.horizon===n?"selected":""}>${n}개월 (${n===3?13:26}주)</option>`).join("")}</select></label>
+      ${!editable()?"":`<button type="button" id="aReset">최근 실적으로 되돌리기</button>`}
+    </div></div>
+  </div>
+  <div class="grid two" style="margin-top:14px">
+    <div class="card"><h2>예정된 일회성 지출</h2>
+      <p class="note" style="margin-top:-4px">대회 참가비, 새 유니폼, 연말 회식, 경조사 화환처럼 미리 아는 큰 지출을 넣으면 그달은 평균 대신 이 금액으로 계산해요.</p>
+      ${!editable()?"":`<form class="form" id="planForm" style="margin-bottom:10px"><label class="f" for="pMonth">월<input type="month" id="pMonth" required value="${addM(cur,1)}"></label><label class="f" for="pLabel">내용<input id="pLabel" required placeholder="예: 겨울 대회 참가비"></label><label class="f" for="pAmt">금액<input type="number" id="pAmt" required min="1" step="1000"></label><button class="primary" type="submit">추가</button></form>`}
+      ${c.planned.length?`<table><tbody>${c.planned.map((p,i)=>`<tr><td>${mLabel(p.month)}</td><td>${esc(p.label)}</td><td class="r num neg">${won(p.amt)}</td><td>${!editable()?"":`<button class="small danger" data-prm="${i}" type="button">빼기</button>`}</td></tr>`).join("")}</tbody></table>`:'<p class="note">아직 없어요.</p>'}</div>
+    <div class="card"><h2>예측 vs 실적</h2>
+      ${V.length?`<div class="scroll"><table><thead><tr><th>월</th><th class="r">예측 순증감</th><th class="r">실제</th><th class="r">차이</th></tr></thead><tbody>${V.map(v=>`<tr><td>${short(v.m)}</td><td class="r num">${wonS(v.pNet)}</td><td class="r num">${wonS(v.aNet)}</td><td class="r num ${v.aNet-v.pNet<0?"neg":"ok"}">${wonS(v.aNet-v.pNet)}</td></tr>`).join("")}</tbody></table></div>
+        <p class="note">차이가 계속 한쪽으로 나면 가정을 고쳐야 한다는 신호예요.</p>`:
+        `<p class="note" style="margin:0">관리자가 이 화면을 열 때마다 다음 달 예측이 저장돼요. ${short(addM(cur,1))}이 끝나면 여기에 예측과 실제가 나란히 나와요.</p>`}</div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>민감도: ${I.horizon}개월 뒤 잔액</h2>
+    <div class="scroll"><table><thead><tr><th>징수율 \\ 회비</th>${sensDues.map(d=>`<th class="r">${won(d)}</th>`).join("")}</tr></thead>
+    <tbody>${sensRate.map((r,i)=>`<tr><td>${r}%</td>${sens[i].map((v,j)=>{const on=sensDues[j]===c.dues&&Math.abs(r-I.rate)<7.5;return `<td class="r num ${v<0?"neg":""}" style="${on?"background:var(--accent-soft);font-weight:700":""}">${won(v)}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>
+  <div class="card" style="margin-top:14px"><h2>주별 현금흐름 (기본)</h2><div class="scroll"><table>
+    <thead><tr><th>주</th><th class="r">들어올 돈</th><th class="r">나갈 돈</th><th class="r">주말 잔액</th></tr></thead>
+    <tbody>${W.map(w=>`<tr><td class="num">${w.start.getMonth()+1}/${w.start.getDate()}~${w.end.getMonth()+1}/${w.end.getDate()}<div class="memo">${esc([...new Set(w.notes)].join(" · ")||"—")}</div></td><td class="r num ok">${w.inc?won(w.inc):"–"}</td><td class="r num neg">${w.out?won(-w.out):"–"}</td><td class="r num ${w.bal<0?"neg":""}"><b>${won(w.bal)}</b></td></tr>`).join("")}</tbody></table></div></div>
+  <div class="card" style="margin-top:14px"><h2>월별 합계 (기본)</h2><div class="scroll"><table>
+    <thead><tr><th>월</th><th class="r">회비</th><th class="r">구장비</th><th class="r hide-sm">물·기타</th><th class="r hide-sm">일회성</th><th class="r">순증감</th><th class="r">월말 잔액</th></tr></thead>
+    <tbody>${B.map(o=>`<tr><td>${short(o.m)}${o.partial?' <span class="chip mute">남은 기간</span>':""}</td><td class="r num ok">${won(o.income)}</td><td class="r num neg">${won(-o.field)}<div class="memo">${o.games}회</div></td><td class="r num neg hide-sm">${won(-o.other)}</td><td class="r num neg hide-sm">${o.plan?won(-o.plan):"–"}</td><td class="r num ${o.net<0?"neg":"ok"}">${wonS(o.net)}</td><td class="r num ${o.bal<0?"neg":""}"><b>${won(o.bal)}</b></td></tr>`).join("")}</tbody></table></div></div>`;
+  const labels=["오늘",...W.map(w=>`${w.end.getMonth()+1}/${w.end.getDate()}`)]; const now=balanceNow(rs);
+  const ds=(k,color,dash)=>({label:SCEN[k].label,data:[now,...WK[k].map(o=>o.bal)],borderColor:color,backgroundColor:color,borderDash:dash,pointRadius:k==="base"?2:0,tension:0,stepped:false,fill:false});
+  const op=chartOpts(); op.scales.x.ticks.maxRotation=0;
+  charts.push(new Chart($("#cFc"),{type:"line",data:{labels,datasets:[
+    ds("high",css("--accent"),[3,4]), ds("base",css("--ink"),[]), ds("low",css("--out"),[3,4]),
+    {label:"목표 예비비",data:labels.map(()=>I.reserve),borderColor:css("--muted"),borderDash:[1,4],pointRadius:0,borderWidth:1}]},options:op}));
+  if(!editable()) return;
+  const setFc=(k,v)=>saveCfg({fc:Object.assign({},c.fc||{},{[k]:v})});
+  const num=id=>{const v=$(id).value;return v===""?null:Number(v)};
+  $("#aMem").onchange=()=>setFc("members",num("#aMem"));
+  $("#aRate").onchange=()=>setFc("rate",num("#aRate"));
+  $("#aGames").onchange=()=>setFc("games",num("#aGames"));
+  $("#aField").onchange=()=>setFc("field",num("#aField"));
+  $("#aOther").onchange=()=>setFc("other",num("#aOther"));
+  $("#aOne").onchange=()=>setFc("oneoff",num("#aOne"));
+  $("#aRes").onchange=()=>setFc("reserve",num("#aRes"));
+  $("#aDues").onchange=()=>{const v=num("#aDues"); if(v) saveCfg({dues:v})};
+  $("#aHor").onchange=()=>saveCfg({horizon:Number($("#aHor").value)});
+  $("#aReset").onclick=()=>saveCfg({fc:{reserve:I.reserve}});
+  $("#planForm").onsubmit=e=>{e.preventDefault();saveCfg({planned:[...c.planned,{month:$("#pMonth").value,label:$("#pLabel").value.trim(),amt:Number($("#pAmt").value)}]})};
+  document.querySelectorAll("[data-prm]").forEach(b=>b.onclick=()=>saveCfg({planned:c.planned.filter((_,i)=>i!==+b.dataset.prm)}));
+}
+
+function settings(rs){
+  const c=cfg(); const dis=!editable()?"disabled":"";
+  $("#view").innerHTML=`
+  <div class="grid two">
+    <div class="card"><h2>메모 쓰는 법</h2>
+      <p class="note" style="margin-top:-4px">토스로 보낼 때 메모에 분류 이름을 쓰면 올릴 때 그대로 분류돼요. 다른 말을 써도 메모는 그대로 보여요. 분류는 거래내역에서 언제든 바꾸거나 직접 입력할 수 있어요.</p>
+      <div class="chips">${MEMO_WORDS.map(([c,w])=>`<span class="chip mute">${esc(w[0])} → ${esc(c)}</span>`).join("")}</div>
+      <p class="note">2만원 입금은 메모가 없어도 회비로 들어가요.</p></div>
+    <div class="card"><h2>기본 설정</h2><div class="grid" style="gap:12px">
+      <label class="f" for="sDues">월 회비<input type="number" id="sDues" step="1000" value="${c.dues}" ${dis}></label>
+      <label class="f" for="sStart">시작 잔액<input type="number" id="sStart" step="1" value="${c.startBalance}" ${dis}><span class="note">첫 거래 전에 통장에 있던 돈</span></label>
+      ${STANDALONE?`<p class="note" style="margin:0">이 장부는 파일 하나로 돌아가요. 업로드한 뒤 홈의 <b>파일 저장</b>을 누르면 최신 데이터가 든 새 파일이 생겨요. 그 파일이 곧 백업이고 팀원 공유용이에요.</p>`:""}
+      ${ON_GH?`<h2 style="margin:8px 0 0">링크 반영용 GitHub 토큰</h2>
+      <p class="note" style="margin:0">처음 한 번만 넣으면 돼요. 이 기기 브라우저에만 저장되고, 장부 파일에는 들어가지 않아요. ${ghToken()?'<b class="ok">저장돼 있어요.</b>':""}</p>
+      <form class="form" id="ghForm" style="grid-template-columns:1fr"><label class="f" for="ghTok">토큰<input type="password" id="ghTok" autocomplete="off" placeholder="github_pat_로 시작" required></label><button type="submit">토큰 저장</button></form>`:""}
+      <h2 style="margin:8px 0 0">관리자 비밀번호</h2>
+      <form class="form" id="pwAdmin" style="grid-template-columns:1fr"><label class="f" for="paNew">관리자 비밀번호 (본인·김민성)<input type="password" id="paNew" autocomplete="new-password" placeholder="새 비밀번호, 4자 이상" minlength="4" required></label><button type="submit">관리자 비밀번호 바꾸기</button></form>
+      <p class="note" style="margin:0">팀원은 링크로 들어오면 보기만 할 수 있어요. 관리자 비밀번호를 넣어야 올리기·수정이 열려요.</p>
+      <label class="f" for="sMonth">장부 시작 월<input type="month" id="sMonth" value="${c.startMonth}" ${dis}></label>
+      <h2 style="margin:8px 0 0">회칙</h2>
+      <label class="f" for="sDue">회비 마감일 (매월)<input type="number" id="sDue" min="1" max="28" value="${c.dueDay}" ${dis}></label>
+      <label class="f" for="sLate">연체료 (1주당)<input type="number" id="sLate" step="1000" value="${c.lateFee}" ${dis}></label>
+      <label class="f" for="sAdj">불참 조정 회비<input type="number" id="sAdj" step="1000" value="${c.adjustAmt}" ${dis}></label>
+      <label class="f" for="sLateFrom">연체료 적용 시작 월<input type="month" id="sLateFrom" value="${c.lateFrom}" ${dis}><span class="note">이 달 회비부터 연체료를 계산해요</span></label>
+    </div></div>
+  </div>`;
+  if(!editable()) return;
+  const setNum=(id,key)=>$(id).onchange=()=>{const v=Number($(id).value); if(isFinite(v)) saveCfg({[key]:v})};
+  setNum("#sDues","dues"); setNum("#sStart","startBalance"); setNum("#sDue","dueDay"); setNum("#sLate","lateFee"); setNum("#sAdj","adjustAmt");
+  $("#sLateFrom").onchange=()=>saveCfg({lateFrom:$("#sLateFrom").value});
+  $("#sMonth").onchange=()=>saveCfg({startMonth:$("#sMonth").value});
+  const gf=$("#ghForm"); if(gf) gf.onsubmit=e=>{e.preventDefault(); try{localStorage.setItem("hhfc-gh-token",$("#ghTok").value.trim())}catch(_){} say("토큰을 저장했어요. 이제 홈의 ‘링크에 반영’ 버튼을 쓰면 돼요."); render(); };
+  $("#pwAdmin").onsubmit=async e=>{e.preventDefault(); const h=await pwHash($("#paNew").value); await saveCfg({pinHash:h}); setAdminKey(h); say("관리자 비밀번호를 바꿨어요. 김민성에게만 알려주세요.");};
+}
+
+/* ---------- 단독 실행용 저장소 (Claude 없이) ---------- */
+let STANDALONE=false;
+function localDB(){
+  const DEMO=!!window.__DEMO; const KEY=DEMO?"hhfc-demo-v1":"hhfc-ledger-v1"; let data={};
+  try{ data=DEMO?null:JSON.parse(localStorage.getItem(KEY)||"null")||null; }catch(_){ data=null; }
+  const seed=window.__SEED; const localAt=data&&data["meta/info"]?.at||"";
+  if(seed&&(!data||(seed.at||"")>localAt)){ // 파일에 든 데이터가 더 최신이면 그걸로 시작해요
+    data={"meta/info":{at:seed.at||""}}; data["config/main"]=seed.cfg; for(const t of seed.tx){ const o=Object.assign({},t); const id=o.id; delete o.id; data["tx/"+id]=o; } }
+  if(!data) data={"meta/info":{at:""}};
+  const subs=new Set(); const emit=()=>subs.forEach(f=>{try{f()}catch(_){}});
+  const persist=(touch=true)=>{ if(DEMO){ emit(); return; } if(touch) data["meta/info"]={at:new Date().toISOString()}; try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e){ say("이 브라우저에 저장하지 못했어요. 백업 파일을 꼭 저장해 두세요.","bad",0); } emit(); };
+  const clone=v=>JSON.parse(JSON.stringify(v));
+  const snap=(id,d)=>({id,exists:!!d,data:()=>d,metadata:{fromCache:false,hasPendingWrites:false}});
+  const docRef=path=>({ id:path.split("/").pop(), path,
+    get:async()=>snap(path.split("/").pop(),data[path]),
+    set:async v=>{ data[path]=clone(v); persist(); },
+    update:async v=>{ if(!data[path]) throw {code:"invalid_argument"}; data[path]=Object.assign({},data[path],clone(v)); persist(); },
+    delete:async()=>{ delete data[path]; persist(); },
+    onSnapshot(cb){ const f=()=>cb(snap(path.split("/").pop(),data[path])); subs.add(f); setTimeout(f,0); return()=>subs.delete(f); } });
+  persist(false);
+  return { doc:docRef,
+    collection:col=>({ doc:id=>docRef(col+"/"+id),
+      onSnapshot(cb){ const f=()=>{ const docs=Object.keys(data).filter(k=>k.split("/").length===2&&k.startsWith(col+"/")).map(k=>snap(k.split("/")[1],data[k])); cb({docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false}}); }; subs.add(f); setTimeout(f,0); return()=>subs.delete(f); } }),
+    exportAll:()=>clone(data), importAll:o=>{ data=clone(o); persist(); }, localAt:()=>data["meta/info"]?.at||"" };
+}
+function fileDownloads(){ return { save:async({filename,data})=>{ const blob=data instanceof Blob?data:new Blob([data],{type:filename.endsWith(".html")?"text/html":filename.endsWith(".json")?"application/json":"text/csv"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1000); return {status:"saved"}; } }; }
+
+/* ---------- 공유용 HTML 파일 ---------- */
+function buildSnapshot(){ // 파일 하나: 최신 데이터가 들어 있고, 팀원은 보기만, 관리자는 비밀번호로 이어서 관리
+  const tx=[...state.tx.values()].map(t=>Object.assign({},t));
+  const c=Object.assign({},cfg()); delete c.viewHash;
+  const data=JSON.stringify({at:new Date().toISOString(),cfg:c,tx}).replace(/</g,"\\u003c");
+  const root=document.documentElement.cloneNode(true);
+  root.querySelector("#view").innerHTML=""; root.querySelectorAll("canvas").forEach(x=>x.remove());
+  root.querySelectorAll("#seed,#snap").forEach(x=>x.remove());
+  root.removeAttribute("data-theme"); root.querySelector("body")?.classList.remove("locked");
+  root.querySelector("#msg").innerHTML="";
+  return "<!DOCTYPE html>\n"+root.outerHTML.replace("<script>\n\"use strict\";",`<script id="seed">window.__SEED=${data};<\/script>\n<script>\n"use strict";`);
+}
+async function shareFile(){
+  const d=today(); const name=`하나해FC_장부_${d.getMonth()+1}월${d.getDate()}일.html`; const html=buildSnapshot();
+  if(downloads){ try{ await downloads.save({filename:name,data:html}); say("최신 장부 파일을 저장했어요. 이 파일을 단톡방에 올리면 팀원은 보기만 되고, 관리자는 이 파일을 열어서 비밀번호로 이어서 관리하면 돼요.","info",9000); return; }catch(e){ if(e&&e.code!=="declined") say("파일을 저장하지 못했어요. 잠시 뒤 다시 해주세요.","warn"); return; } }
+  say("이 화면에서는 파일 저장이 안 돼요.","warn");
+}
+/* ---------- 버전 표시: 팀원에게 보이는 반영본 시각, 관리자에게는 반영 안 된 변경 ---------- */
+function fmtAt(iso){ if(!iso) return ""; const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function versionLabel(){ if(window.__DEMO) return EN?"Demo · member names anonymized":"데모 · 이름 가림"; const seedAt=window.__SEED?.at||""; const local=db?.localAt?.()||"";
+  const pending=editable()&&local&&local>seedAt;
+  return `${seedAt?fmtAt(seedAt)+" 반영본":"반영본 없음"}${pending?' · <span style="color:#F0A585">반영 안 된 변경 있음</span>':""}`; }
+/* ---------- 링크(GitHub Pages)에 바로 반영 ---------- */
+const ON_GH=/\.github\.io$/.test(location.hostname);
+const GH={owner:ON_GH?location.hostname.split(".")[0]:"seanbae-analyst",repo:ON_GH?(location.pathname.split("/")[1]||"hanahae-fc"):"hanahae-fc",path:"index.html"};
+const ghToken=()=>{try{return localStorage.getItem("hhfc-gh-token")||""}catch(_){return ""}};
+async function ghPublish(btn){
+  const token=ghToken(); if(!token){ say("처음 한 번만, 설정 탭에서 GitHub 토큰을 넣어주세요.","warn",8000); location.hash="settings"; return; }
+  const api=`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
+  const h={Authorization:`Bearer ${token}`,Accept:"application/vnd.github+json"};
+  if(btn) btn.disabled=true; say("링크에 반영하는 중…","info",0);
+  try{
+    const html=buildSnapshot(); const bytes=new TextEncoder().encode(html); let bin=""; for(let i=0;i<bytes.length;i+=0x8000) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+    let sha; const r0=await fetch(api+"?t="+Date.now(),{headers:h}); if(r0.ok) sha=(await r0.json()).sha; else if(r0.status===401){ throw new Error("토큰이 맞지 않거나 만료됐어요. 설정 탭에서 새 토큰을 넣어주세요."); }
+    const d=today(); const r=await fetch(api,{method:"PUT",headers:h,body:JSON.stringify({message:`장부 업데이트 ${d.getMonth()+1}/${d.getDate()}`,content:btoa(bin),sha})});
+    if(!r.ok){ const t=await r.json().catch(()=>({})); throw new Error(r.status===401||r.status===403?"토큰 권한이 부족해요. 이 저장소의 Contents 읽기·쓰기 권한이 있는 토큰인지 확인해주세요.":(t.message||("오류 "+r.status))); }
+    if(window.__SEED) window.__SEED.at=new Date().toISOString(); else window.__SEED={at:new Date().toISOString()};
+    render(); say("링크에 반영했어요. 팀원 화면에는 보통 1~2분, 늦으면 10분 안에 바뀌어요. 맨 위에 ‘"+fmtAt(window.__SEED.at)+" 반영본’이 보이면 최신이에요.","info",12000);
+  }catch(e){ say("반영하지 못했어요. "+esc(e.message||e),"bad",0); }
+  finally{ if(btn) btn.disabled=false; }
+}
+/* ---------- export ---------- */
+async function exportCsv(){
+  const rs=rows(); const q=v=>{const s=String(v??"");return /^[=+\-@]/.test(s)&&isNaN(Number(s))?"'"+s:s};
+  const lines=[["일시","적요","거래유형","금액","잔액","메모","분류","회비 월","낸 사람"].join(",")];
+  for(const r of [...rs].reverse()) lines.push([r.t.replace("T"," "),q(r.name),q(r.type),r.amt,r.bal??"",q(r.memo),r._cat,r._cat==="회비"?dueMonth(r):"",r._cat==="회비"?payer(r):""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(","));
+  try{ await downloads.save({filename:`하나해FC_장부_${ym(today())}.csv`,data:"﻿"+lines.join("\n")}); }catch(e){ say("내보내기를 취소했거나 하지 못했어요.","warn"); }
+}
+
+/* ---------- boot ---------- */
+window.addEventListener("hashchange",render);
+(function swipe(){ let x0=null,y0=null,t0=0,skip=false;
+  const view=document.getElementById("view");
+  view.addEventListener("touchstart",e=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; t0=Date.now();
+    skip=!!e.target.closest("canvas,input,select,textarea,.dues") || [...document.querySelectorAll(".scroll")].some(el=>el.contains(e.target)&&el.scrollWidth>el.clientWidth+4); },{passive:true});
+  view.addEventListener("touchend",e=>{ if(x0==null||skip){x0=null;return} const t=e.changedTouches[0]; const dx=t.clientX-x0, dy=t.clientY-y0; x0=null;
+    if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6||Date.now()-t0>700) return;
+    if(document.body.classList.contains("locked")) return; const T=editable()?TABS:TABS.filter(t=>t!=="settings"); const i=T.indexOf(setTab()); const j=dx<0?Math.min(T.length-1,i+1):Math.max(0,i-1); if(j!==i&&i>=0) location.hash=T[j]; },{passive:true});
+})();
+$("#importFile").addEventListener("change",async e=>{const f=e.target.files[0]; e.target.value=""; if(f) await importFile(f);});
+$("#exportBtn").addEventListener("click",exportCsv);
+$("#langBtn").textContent=EN?"한":"EN"; $("#langBtn").setAttribute("aria-label",EN?"한국어로 보기":"View in English");
+$("#langBtn").addEventListener("click",()=>{ try{ localStorage.setItem("hhfc-lang",EN?"ko":"en"); }catch(_){} const u=new URL(location.href); u.searchParams.delete("lang"); location.replace(u.toString()); });
+$("#adminBtn").addEventListener("click",()=>{ if(editable()&&cfg().pinHash){ setAdminKey(null); render(); return; } $("#pinErr").textContent=""; $("#pinInput").value=""; const d=$("#pinDlg"); if(d.showModal) d.showModal(); else d.setAttribute("open",""); setTimeout(()=>$("#pinInput").focus(),50); });
+$("#pinCancel").addEventListener("click",()=>$("#pinDlg").close());
+$("#pinForm").addEventListener("submit",async e=>{ e.preventDefault(); const h=await pwHash($("#pinInput").value);
+  if(h===cfg().pinHash){ setAdminKey(h); $("#pinDlg").close(); render(); } else { $("#pinErr").textContent="비밀번호가 맞지 않아요."; $("#pinInput").select(); } });
+(async()=>{
+  setTab();
+  if(SNAP){ state.cfg=SNAP.cfg; state.tx=new Map(SNAP.tx.map(d=>[d.id,d])); state.cfgLoaded=state.txLoaded=true; canWrite=false;
+    render(); const a=$("#asof"); if(a){ const d=new Date(SNAP.at); a.textContent=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} 기준 · 보기 전용`; } return; }
+  const timer=setTimeout(()=>{ if(!state.txLoaded) say("장부를 아직 불러오지 못했어요. 인터넷 연결을 확인해주세요.","warn",0); },10000);
+  if(!window.claude||typeof window.claude.use!=="function"){
+    // 단독 실행: Claude 없이 이 파일만으로 돌아가요. 데이터는 이 브라우저에 저장돼요.
+    STANDALONE=true; db=localDB(); canWrite=!window.__DEMO; downloads=fileDownloads();
+  } else {
+    db=await claude.use("db");
+    if(!db){ clearTimeout(timer); $("#view").innerHTML=`<div class="card empty">장부를 보려면 claude.ai에 로그인해야 해요.</div>`; return; }
+    claude.use("user").then(async u=>{ if(!u)return; try{ const v=await u.can("data.write"); if(v===false){canWrite=false;render()} else if(v===true){canWrite=true;render()} }catch(_){} });
+    claude.use("downloads").then(d=>{downloads=d;render()}).catch(()=>{});
+  }
+  db.doc("config/main").onSnapshot(s=>{ state.cfg=s.exists?s.data():null; state.cfgLoaded=true; render(); },e=>{state.cfgLoaded=true;render()});
+  db.collection("tx").onSnapshot(s=>{ state.tx=new Map(s.docs.map(d=>[d.id,Object.assign({id:d.id},d.data())])); if(!s.metadata.fromCache){state.txLoaded=true;clearTimeout(timer);$("#msg").innerHTML=$("#msg").innerHTML.includes("불러오지 못했")?"":$("#msg").innerHTML} else if(s.size) state.txLoaded=true; render(); },
+    e=>{ clearTimeout(timer); state.txLoaded=true; say("장부를 불러오지 못했어요. ("+esc(e.code)+")","bad",0); render(); });
+})();
+</script>
+</body>
+</html>
